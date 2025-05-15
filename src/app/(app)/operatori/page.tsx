@@ -4,7 +4,7 @@
 import type { User } from '@/types';
 import Image from 'next/image';
 import Link from 'next/link';
-import { MoreHorizontal, UserX, KeyRound, Trash2, PlusCircle, Loader2 } from 'lucide-react';
+import { MoreHorizontal, UserX, KeyRound, Trash2, PlusCircle, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -31,7 +31,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,22 +40,29 @@ import { apiClient } from '@/lib/graphql/client';
 import { GET_USERS_BY_ROLE_QUERY, REMOVE_USER_MUTATION } from '@/lib/graphql/queries';
 import { parseImg } from '@/lib/utils';
 
-// Placeholder for the backend function to delete Firebase user
-// You'll need to implement apiFirebase and the backend endpoint
+// Placeholder functions for Firebase operations via backend API
 async function deleteFirebaseUser(uid: string): Promise<any> {
-  console.warn("deleteFirebaseUser function is a placeholder. Backend implementation required via apiFirebase.");
-  // Example structure if you had an apiFirebase client:
-  // try {
-  //   const response: any = await apiFirebase.post('/removeFirebaseUser', {uid});
-  //   if (!response) {
-  //     throw new Error("No response from Firebase user deletion endpoint");
-  //   }
-  //   return response.result;
-  // } catch (error) {
-  //   console.error("Error calling Firebase user deletion endpoint:", error);
-  //   throw error; // Re-throw to be caught by caller
-  // }
-  return Promise.resolve({ success: true, message: "Firebase user deletion simulated." });
+  console.warn(`[DEMO] deleteFirebaseUser called for UID: ${uid}. Backend implementation via apiFirebase needed.`);
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return { success: true, message: "Firebase user deletion simulated." };
+}
+
+async function disableFirebaseUser(uid: string): Promise<any> {
+  console.warn(`[DEMO] disableFirebaseUser called for UID: ${uid}. Backend implementation via apiFirebase needed.`);
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return { success: true, message: "Firebase user disable simulated." };
+}
+
+async function enableFirebaseUser(uid: string): Promise<any> {
+  console.warn(`[DEMO] enableFirebaseUser called for UID: ${uid}. Backend implementation via apiFirebase needed.`);
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return { success: true, message: "Firebase user enable simulated." };
+}
+
+async function changeFirebaseUserPassword(uid: string, newPassword?: string): Promise<any> {
+  console.warn(`[DEMO] changeFirebaseUserPassword called for UID: ${uid} (password not shown for security). Backend implementation via apiFirebase needed.`);
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return { success: true, message: "Firebase user password change simulated." };
 }
 
 
@@ -66,6 +72,7 @@ export default function OperatoriPage() {
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [operatorToDelete, setOperatorToDelete] = useState<User | null>(null);
+  const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchOperators = async () => {
@@ -82,9 +89,9 @@ export default function OperatoriPage() {
           setOperators(fetchedOperators);
         } else if (response.errors) {
           console.error("GraphQL errors:", response.errors);
-          toast({ title: "Errore Caricamento", description: `Impossibile caricare gli operatori: ${response.errors[0].message}`, variant: "destructive" });
+          toast({ title: "Errore Caricamento Operatori", description: `Impossibile caricare gli operatori: ${response.errors[0].message}`, variant: "destructive" });
         } else {
-           toast({ title: "Errore Dati", description: "Nessun dato operatore ricevuto.", variant: "destructive" });
+           toast({ title: "Errore Dati Operatori", description: "Nessun dato operatore ricevuto.", variant: "destructive" });
         }
       } catch (error) {
         console.error("Failed to fetch operators:", error);
@@ -96,28 +103,75 @@ export default function OperatoriPage() {
     fetchOperators();
   }, [toast]);
 
-  const handlePasswordChangeAction = (operatorName: string) => {
-    toast({
-      title: "Cambia Password (Demo)",
-      description: `Azione 'Cambia Password' per l'operatore ${operatorName} è stata richiesta. (Funzionalità demo)`,
-    });
+  const handlePasswordChangeAction = async (operator: User) => {
+    const newPassword = window.prompt(`[DEMO] Inserisci la nuova password per ${operator.displayName || operator.email}:`);
+    if (newPassword && operator.firebaseId) {
+      try {
+        // Simulate API call
+        await changeFirebaseUserPassword(operator.firebaseId, newPassword);
+        toast({
+          title: "Cambia Password (Simulato)",
+          description: `La password per ${operator.displayName || operator.email} è stata (simulata) cambiata.`,
+        });
+      } catch (error) {
+        console.error("Simulated password change error:", error);
+        toast({
+          title: "Errore Simulazione Password",
+          description: `Impossibile simulare il cambio password.`,
+          variant: "destructive",
+        });
+      }
+    } else if (newPassword === null) {
+      // User cancelled prompt
+    } else {
+      toast({ title: "Azione Annullata", description: "Nessuna password fornita o operatore non valido.", variant: "default" });
+    }
   };
 
-  const handleToggleOperatorStatusAction = (operatorName: string, isDisabled: boolean | undefined) => {
-    const actionText = isDisabled ? 'Abilita Operatore' : 'Disabilita Operatore';
-    toast({
-      title: `${actionText} (Demo)`,
-      description: `Azione '${actionText}' per l'operatore ${operatorName} è stata richiesta. (Funzionalità demo)`,
-    });
+  const handleToggleOperatorStatusAction = async (operatorId: number, currentStatus: boolean | undefined) => {
+    const operatorToUpdate = operators.find(op => op.id === operatorId);
+    if (!operatorToUpdate || !operatorToUpdate.firebaseId) {
+      toast({ title: "Errore", description: "Operatore non trovato o ID Firebase mancante.", variant: "destructive" });
+      return;
+    }
+    
+    const enable = !!currentStatus; // if currentStatus is true (disabled), then enable will be true (meaning we want to enable)
+
+    try {
+      if (enable) {
+        await enableFirebaseUser(operatorToUpdate.firebaseId);
+      } else {
+        await disableFirebaseUser(operatorToUpdate.firebaseId);
+      }
+
+      setOperators(prevOperators =>
+        prevOperators.map(op =>
+          op.id === operatorId ? { ...op, disabled: !enable, status: !enable ? 'disabled' : 'active' } : op
+        )
+      );
+      toast({
+        title: `Operatore ${enable ? 'Abilitato' : 'Disabilitato'} (Simulato)`,
+        description: `Lo stato di ${operatorToUpdate.displayName || operatorToUpdate.email} è stato (simulato) aggiornato.`,
+      });
+    } catch (error) {
+      console.error("Simulated status toggle error:", error);
+      toast({
+        title: "Errore Simulazione Stato",
+        description: `Impossibile simulare il cambio stato.`,
+        variant: "destructive",
+      });
+    }
   };
+
 
   const openDeleteConfirmation = (operator: User) => {
     setOperatorToDelete(operator);
+    setIsAlertDialogOpen(true);
   };
 
   const handleDeleteOperator = async () => {
     if (!operatorToDelete) return;
-    
+
     setIsDeleting(true);
     const operatorNameToDelete = operatorToDelete.displayName || operatorToDelete.email || "Operatore Selezionato";
 
@@ -130,31 +184,27 @@ export default function OperatoriPage() {
 
       // 2. Conceptually delete from Firebase Auth (requires backend)
       if (operatorToDelete.firebaseId) {
-        try {
-          await deleteFirebaseUser(operatorToDelete.firebaseId);
-        } catch (firebaseError) {
-          console.warn("Failed to delete Firebase user (backend call needed):", firebaseError);
-          // toast({ title: "Avviso", description: "Operatore eliminato dal DB, ma si è verificato un problema con la rimozione da Firebase Auth.", variant: "default" });
-        }
+        await deleteFirebaseUser(operatorToDelete.firebaseId);
       }
-      
+
       setOperators(prevOperators => prevOperators.filter(op => op.id !== operatorToDelete.id));
-      toast({ 
-        title: "Operatore Eliminato", 
+      toast({
+        title: "Operatore Eliminato",
         description: `L'operatore ${operatorNameToDelete} è stato eliminato con successo.`,
-        variant: "destructive" 
+        variant: "destructive"
       });
     } catch (error) {
       console.error("Error deleting operator:", error);
       const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto durante l'eliminazione.";
-      toast({ 
-        title: "Errore Eliminazione", 
-        description: `Impossibile eliminare l'operatore ${operatorNameToDelete}: ${errorMessage}`, 
-        variant: "destructive" 
+      toast({
+        title: "Errore Eliminazione",
+        description: `Impossibile eliminare l'operatore ${operatorNameToDelete}: ${errorMessage}`,
+        variant: "destructive"
       });
     } finally {
       setIsDeleting(false);
-      setOperatorToDelete(null); 
+      setOperatorToDelete(null);
+      setIsAlertDialogOpen(false);
     }
   };
 
@@ -228,24 +278,22 @@ export default function OperatoriPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Azioni</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handlePasswordChangeAction(operator.displayName || operator.email || 'Operatore Selezionato')}>
+                          <DropdownMenuItem onClick={() => handlePasswordChangeAction(operator)}>
                             <KeyRound className="mr-2 h-4 w-4" />
                             Cambia Password
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleToggleOperatorStatusAction(operator.displayName || operator.email || 'Operatore Selezionato', operator.disabled)}>
-                            <UserX className="mr-2 h-4 w-4" />
+                          <DropdownMenuItem onClick={() => handleToggleOperatorStatusAction(operator.id, operator.disabled)}>
+                             {operator.disabled ? <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> : <XCircle className="mr-2 h-4 w-4 text-red-500" />}
                             {operator.disabled ? 'Abilita Operatore' : 'Disabilita Operatore'}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                           <AlertDialogTrigger asChild>
-                            <DropdownMenuItem 
+                           <DropdownMenuItem
                               className="text-destructive focus:text-destructive focus:bg-destructive/10"
                               onSelect={() => openDeleteConfirmation(operator)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Elimina Operatore
                             </DropdownMenuItem>
-                          </AlertDialogTrigger>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -260,26 +308,26 @@ export default function OperatoriPage() {
         </CardContent>
       </Card>
 
-      {operatorToDelete && (
-        <AlertDialog open={!!operatorToDelete} onOpenChange={(open) => !open && setOperatorToDelete(null)}>
+      <AlertDialog open={isAlertDialogOpen} onOpenChange={setIsAlertDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Conferma Eliminazione</AlertDialogTitle>
               <AlertDialogDescription>
-                Sei sicuro di voler eliminare l'operatore {operatorToDelete.displayName || operatorToDelete.email}? Questa azione non può essere annullata.
+                Sei sicuro di voler eliminare l'operatore {operatorToDelete?.displayName || operatorToDelete?.email}? Questa azione non può essere annullata.
                 L'operatore verrà rimosso dal database e il suo account Firebase verrà (concettualmente) eliminato.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setOperatorToDelete(null)} disabled={isDeleting}>Annulla</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => { setOperatorToDelete(null); setIsAlertDialogOpen(false);}} disabled={isDeleting}>Annulla</AlertDialogCancel>
               <AlertDialogAction onClick={handleDeleteOperator} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
                 {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Elimina
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
-        </AlertDialog>
-      )}
+      </AlertDialog>
     </>
   );
 }
+
+    
