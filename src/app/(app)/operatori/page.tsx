@@ -2,7 +2,8 @@
 
 import type { User } from '@/types';
 import Image from 'next/image';
-import { MoreHorizontal, UserX, KeyRound, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import { MoreHorizontal, UserX, KeyRound, Trash2, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -42,9 +43,17 @@ export default function OperatoriPage() {
 
   return (
     <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle className="text-2xl font-bold text-foreground">Gestione Operatori</CardTitle>
-        <CardDescription>Visualizza e gestisci gli utenti con ruolo "operator".</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-2xl font-bold text-foreground">Gestione Operatori</CardTitle>
+          <CardDescription>Visualizza e gestisci gli utenti con ruolo "operator".</CardDescription>
+        </div>
+        <Button asChild>
+          <Link href="/operatori/new">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Aggiungi Operatore
+          </Link>
+        </Button>
       </CardHeader>
       <CardContent>
         <Table>
