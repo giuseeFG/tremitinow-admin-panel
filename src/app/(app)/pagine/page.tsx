@@ -2,13 +2,28 @@
 "use client";
 import type { Page } from '@/types';
 import Link from 'next/link';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, FileText, Loader2 } from 'lucide-react';
+import { ArrowRight, FileText, Loader2, MoreHorizontal } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/graphql/client'; 
 import { GET_PAGES_QUERY } from '@/lib/graphql/queries'; 
 import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function PaginePage() {
   const [pages, setPages] = useState<Page[]>([]);
@@ -30,7 +45,6 @@ export default function PaginePage() {
           const fetchedPages: Page[] = response.data.groups.map(g => ({
             id: g.id,
             title: g.title,
-            // content and created_at are not fetched by GET_PAGES_QUERY for the list
             category: g.category ? { id: g.category.id, category: g.category.category } : null,
           }));
           setPages(fetchedPages);
@@ -59,39 +73,59 @@ export default function PaginePage() {
   }
   
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
+    <Card className="shadow-lg">
+      <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Pagine Informative</h1>
-          <p className="text-muted-foreground">Gestisci le pagine statiche del sito (derivate dalla tabella Gruppi).</p>
+          <CardTitle className="text-2xl font-bold text-foreground">Gestione Pagine</CardTitle>
+          <CardDescription>Visualizza e gestisci le pagine informative del sito.</CardDescription>
         </div>
         <Button>
           <FileText className="mr-2 h-4 w-4" />
           Crea Nuova Pagina (Demo)
         </Button>
-      </div>
-      
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {pages.map((page) => (
-          <Card key={page.id} className="flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <CardHeader>
-              <CardTitle className="text-xl text-primary">{page.title}</CardTitle>
-              {/* Removed CardDescription for created_at as it's not in the list query */}
-            </CardHeader>
-            {/* Removed CardContent for page.content as it's not in the list query */}
-            <CardFooter className="mt-auto pt-4"> {/* Added mt-auto to push footer to bottom if content is removed */}
-              <Link href={`/pagine/${page.id}`} passHref legacyBehavior>
-                <Button variant="outline" className="w-full">
-                  Vedi Dettagli <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
-      {pages.length === 0 && !loading && (
-        <p className="text-center py-4 text-muted-foreground">Nessuna pagina trovata.</p>
-      )}
-    </div>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Titolo</TableHead>
+              <TableHead>Categoria</TableHead>
+              <TableHead className="text-right">Azioni</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {pages.map((page) => (
+              <TableRow key={page.id}>
+                <TableCell className="font-medium">{page.title}</TableCell>
+                <TableCell>{page.category?.category || '-'}</TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Apri menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Azioni</DropdownMenuLabel>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/pagine/${page.id}`}>
+                          <ArrowRight className="mr-2 h-4 w-4" />
+                          Vedi Dettagli
+                        </Link>
+                      </DropdownMenuItem>
+                      {/* Altre azioni future qui (es. Modifica, Elimina) */}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        {pages.length === 0 && !loading && (
+          <p className="text-center py-4 text-muted-foreground">Nessuna pagina trovata.</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
