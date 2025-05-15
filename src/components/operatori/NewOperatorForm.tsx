@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import React from "react";
-import { createUserInFirebaseAuth, sendPasswordReset } from "@/lib/firebase/auth"; // Import createUserInFirebaseAuth
+import { registerFirebaseUser, sendPasswordReset } from "@/lib/firebase/auth"; // Import registerFirebaseUser
 import type { User as AppUser } from "@/types";
 
 const newOperatorSchema = z.object({
@@ -30,7 +30,7 @@ const newOperatorSchema = z.object({
 type NewOperatorFormData = z.infer<typeof newOperatorSchema>;
 
 interface NewOperatorFormProps {
-  onOperatorCreated: () => void; // Callback to close dialog and potentially refresh list
+  onOperatorCreated: () => void; 
 }
 
 export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
@@ -52,51 +52,49 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
     let firebaseUserUid = '';
 
     try {
-      // 1. Create user in Firebase Auth using the Client SDK
       console.log("Attempting to create user in Firebase Auth with email:", data.email);
-      const firebaseUserCredential = await createUserInFirebaseAuth(data.email, data.password);
-      if (!firebaseUserCredential || !firebaseUserCredential.user) {
+      const firebaseUser = await registerFirebaseUser(data.email, data.password);
+      if (!firebaseUser) { // registerFirebaseUser now directly returns FirebaseUser or throws
         throw new Error("Firebase user creation failed or user data not returned.");
       }
-      firebaseUserUid = firebaseUserCredential.user.uid;
+      firebaseUserUid = firebaseUser.uid;
       toast({ title: "Utente Firebase Creato", description: `UID: ${firebaseUserUid}` });
       console.log("Firebase user created successfully, UID:", firebaseUserUid);
 
-      // 2. Prepare user data for your backend (Hasura)
-      const newUserPayload: Partial<AppUser> & { email: string; role: string } = { // Ensure role is part of the payload
+      const newUserPayload: Partial<AppUser> & { email: string; role: string } = {
         first_name: data.firstName,
         last_name: data.lastName,
         email: data.email,
-        role: 'operator', // Explicitly set role
+        role: 'operator', 
         firebaseId: firebaseUserUid,
-        // status: 'ACTIVE', // Default status if your backend expects it
+        status: 'ACTIVE', // Default status
       };
       console.log("Payload for backend /registerUser:", newUserPayload);
 
-      // 3. Register user in your database (e.g., Hasura via a Cloud Function or Action)
-      // This currently simulates a fetch call. Replace with your actual API call (e.g., using axios if preferred and configured)
       const backendRegisterUrl = process.env.NEXT_PUBLIC_FIREBASE_BASE_URL + '/registerUser';
       console.log("Attempting to register user in backend via:", backendRegisterUrl);
       const backendResponse = await fetch(backendRegisterUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Add any necessary auth headers for this backend endpoint if required
         },
-        body: JSON.stringify({ object: newUserPayload }), // Structure based on your example
+        body: JSON.stringify({ object: newUserPayload }), 
       });
 
       if (!backendResponse.ok) {
         const errorData = await backendResponse.text();
         console.error("Backend registration error:", backendResponse.status, errorData);
-        throw new Error(`Backend registration failed: ${backendResponse.status} ${errorData}`);
+        // Attempt to delete Firebase user if backend registration fails
+        // This part is tricky and might need a backend mechanism for robustness
+        // For now, we'll log and notify, but actual Firebase user deletion on failure here can be complex
+        // await deleteFirebaseUser(firebaseUserUid); // Placeholder for a potential cleanup
+        throw new Error(`Backend registration failed: ${backendResponse.status} ${errorData}. Firebase user ${firebaseUserUid} was created but backend sync failed.`);
       }
       
-      const backendResult = await backendResponse.json(); // Assuming your backend returns JSON
+      const backendResult = await backendResponse.json(); 
       console.log("Backend registration successful:", backendResult);
       toast({ title: "Operatore Registrato nel DB", description: `L'operatore ${data.firstName} ${data.lastName} è stato registrato.` });
       
-      // 4. Send password reset email
       console.log("Attempting to send password reset email to:", data.email);
       await sendPasswordReset(data.email);
       toast({
@@ -106,7 +104,7 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
       console.log("Password reset email sent successfully.");
 
       form.reset();
-      onOperatorCreated(); // Close dialog and trigger refresh
+      onOperatorCreated(); 
 
     } catch (error: any) {
       console.error("Error creating operator:", error);
@@ -182,7 +180,7 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
           )}
         />
         <div className="flex justify-end gap-2 pt-4">
-          <Button type="button" variant="outline" onClick={onOperatorCreated} disabled={isSubmitting}>
+          <Button type="button" variant="outline" onClick={() => { form.reset(); onOperatorCreated();}} disabled={isSubmitting}>
             Annulla
           </Button>
           <Button type="submit" disabled={isSubmitting}>

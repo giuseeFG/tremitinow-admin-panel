@@ -12,46 +12,44 @@ import {
 } from 'firebase/auth';
 import type { User as AppUser } from '@/types'; // Il nostro tipo User applicativo
 import { apiClient } from '@/lib/graphql/client'; 
-import { GET_USER_BY_FIREBASE_ID } from '@/lib/graphql/queries';
+import { GET_USER_BY_FIREBASE_ID, UPDATE_USER_STATUS_MUTATION } from '@/lib/graphql/queries'; // Ensure UPDATE_USER_STATUS_MUTATION is imported if used elsewhere, though not directly here
 import { parseImg } from '@/lib/utils'; // Import parseImg
 
 // Funzione per recuperare i dettagli dell'utente da Hasura
 async function getUserByFirebaseId(firebaseId: string): Promise<Partial<AppUser> | null> {
+  console.log(`[getUserByFirebaseId] Fetching user data for firebaseId: ${firebaseId}`);
   try {
-    // La query GET_USER_BY_FIREBASE_ID è già definita in queries.ts
-    // e attende una variabile $firebaseId
     const response = await apiClient<{ users: any[] }>(GET_USER_BY_FIREBASE_ID, { firebaseId });
 
     if (response.errors) {
-      console.error("GraphQL error fetching user by firebaseId:", response.errors);
+      console.error("[getUserByFirebaseId] GraphQL error fetching user by firebaseId:", JSON.stringify(response.errors, null, 2));
       return null;
     }
 
     if (response.data && response.data.users && response.data.users.length > 0) {
       const dbUser = response.data.users[0];
-      // Mappa i campi dalla risposta di Hasura al nostro tipo AppUser
+      console.log("[getUserByFirebaseId] User data found in DB:", dbUser);
       return {
-        id: parseInt(dbUser.id, 10), // DB ID
+        id: parseInt(dbUser.id, 10),
         first_name: dbUser.first_name,
         last_name: dbUser.last_name,
-        avatar: dbUser.avatar, // raw avatar, parseImg will be used in component
+        avatar: dbUser.avatar,
         role: dbUser.role,
-        status: dbUser.status, // Should be 'ACTIVE' or 'DISABLED'
+        status: dbUser.status,
         auth_complete: dbUser.auth_complete,
         born: dbUser.born,
-        cover: dbUser.cover, // raw cover
+        cover: dbUser.cover,
         notifications_enabled: dbUser.notifications_enabled,
         phone: dbUser.phone,
         sex: dbUser.sex,
         step: dbUser.step,
         created_at: dbUser.created_at,
-        // Calcola displayName e disabled qui o nel callback di onAuthStatusChanged
       };
     }
-    console.warn(`User with firebaseId ${firebaseId} not found in DB.`);
+    console.warn(`[getUserByFirebaseId] User with firebaseId ${firebaseId} not found in DB.`);
     return null;
   } catch (error) {
-    console.error("Error fetching user data from Hasura by firebaseId:", error);
+    console.error("[getUserByFirebaseId] Catch block: Error fetching user data from Hasura by firebaseId:", error);
     return null;
   }
 }
@@ -71,48 +69,44 @@ export const onAuthStatusChanged = (
 ): (() => void) => { 
   return firebaseOnAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
     if (fbUser) {
-      // Dati base da FirebaseUser
       let appUser: AppUser = {
         firebaseId: fbUser.uid,
         email: fbUser.email,
         displayName: fbUser.displayName, 
-        avatar: fbUser.photoURL, // Firebase avatar
-        id: 0, // Placeholder DB ID, sarà sovrascritto
-        status: 'ACTIVE', // Default status
+        avatar: fbUser.photoURL,
+        id: 0, 
+        status: 'ACTIVE', 
+        disabled: false, // Default to false, derived from status later
       };
 
       try {
         const extendedProfile = await getUserByFirebaseId(fbUser.uid);
         if (extendedProfile) {
           appUser = {
-            ...appUser, // Dati base da Firebase
-            ...extendedProfile, // Sovrascrive con i dati da Hasura
-            // Assicurati che id sia un numero se extendedProfile.id è stringa
+            ...appUser, 
+            ...extendedProfile, 
             id: typeof extendedProfile.id === 'string' ? parseInt(extendedProfile.id, 10) : extendedProfile.id || appUser.id,
-            // Sovrascrivi avatar se presente nel profilo esteso, altrimenti usa quello di Firebase
             avatar: extendedProfile.avatar || appUser.avatar,
+            displayName: `${extendedProfile.first_name || ''} ${extendedProfile.last_name || ''}`.trim() || appUser.displayName || fbUser.email,
+            status: extendedProfile.status || appUser.status,
             disabled: extendedProfile.status === 'DISABLED',
-            displayName: `${extendedProfile.first_name || ''} ${extendedProfile.last_name || ''}`.trim() || appUser.displayName,
-            status: extendedProfile.status || appUser.status, // Use Hasura status if available
           };
         } else {
-          console.warn(`User ${fbUser.uid} authenticated with Firebase but no extended profile found in DB.`);
-          // Potresti voler gestire questo caso, es. se un utente Firebase non ha un record corrispondente nel DB
-          // Forniamo comunque i dati base di Firebase
-          if (!appUser.displayName && appUser.email) { // Fallback per displayName
+          console.warn(`[onAuthStatusChanged] User ${fbUser.uid} authenticated with Firebase but no extended profile found in DB.`);
+          if (!appUser.displayName && appUser.email) {
              appUser.displayName = appUser.email;
           }
-          // Potresti voler assegnare un ruolo di default o gestire diversamente
-          appUser.role = appUser.role || 'user'; // Fallback role
-          appUser.disabled = appUser.status === 'DISABLED'; 
+          appUser.role = appUser.role || 'user'; 
+          appUser.status = appUser.status || 'ACTIVE';
+          appUser.disabled = appUser.status === 'DISABLED';
         }
       } catch (error) {
-        console.error("Failed to fetch extended user profile during onAuthStatusChanged:", error);
-        // In caso di errore nel fetch del profilo, procedi con i dati base di Firebase
+        console.error("[onAuthStatusChanged] Failed to fetch extended user profile:", error);
          if (!appUser.displayName && appUser.email) {
              appUser.displayName = appUser.email;
           }
         appUser.role = appUser.role || 'user';
+        appUser.status = appUser.status || 'ACTIVE';
         appUser.disabled = appUser.status === 'DISABLED';
       }
       
@@ -124,7 +118,8 @@ export const onAuthStatusChanged = (
 };
 
 // Funzione per creare un utente in Firebase Authentication (Client SDK)
-export const createUserInFirebaseAuth = async (email: string, password: string): Promise<FirebaseUser | null> => {
+// Rinominata come richiesto dall'utente
+export const registerFirebaseUser = async (email: string, password: string): Promise<FirebaseUser> => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     return userCredential.user;
