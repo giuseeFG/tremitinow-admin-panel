@@ -156,3 +156,36 @@ export const UPDATE_USER_STATUS_MUTATION = `
     }
   }
 `;
+
+/**
+ * Fetches aggregated statistics for the dashboard.
+ */
+export const GET_DASHBOARD_STATS_QUERY = `
+  query getDashboardStats {
+    users_aggregate(where: {role: {_eq: "user"}}) {
+      aggregate {
+        count
+      }
+    }
+    operators_aggregate: users_aggregate(where: {role: {_eq: "operator"}}) {
+      aggregate {
+        count
+      }
+    }
+    groups_aggregate { # This will count for "Pagine"
+      aggregate {
+        count
+      }
+    }
+    posts_aggregate {
+      aggregate {
+        count
+      }
+    }
+    form_requests_aggregate {
+      aggregate {
+        count
+      }
+    }
+  }
+`;
