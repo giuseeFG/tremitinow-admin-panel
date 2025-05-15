@@ -13,31 +13,51 @@ interface DashboardStats {
 }
 
 async function getDashboardData(): Promise<DashboardStats> {
+  const defaultStats: DashboardStats = { users: 0, operators: 0, posts: 0, pages: 0, requests: 0 };
   try {
-    const response = await apiClient<{ 
-      users: { aggregate: { count: number } },
-      operators: { aggregate: { count: number } },
-      pages: { aggregate: { count: number } }, // Corresponds to groups_aggregate aliased as pages
-      posts: { aggregate: { count: number } },
-      requests: { aggregate: { count: number } }
+    console.log("Attempting to fetch dashboard stats...");
+    const response = await apiClient<{
+      users?: { aggregate?: { count?: number | null } | null } | null;
+      operators?: { aggregate?: { count?: number | null } | null } | null;
+      pages?: { aggregate?: { count?: number | null } | null } | null; // Corresponds to groups_aggregate aliased as pages
+      posts?: { aggregate?: { count?: number | null } | null } | null;
+      requests?: { aggregate?: { count?: number | null } | null } | null;
     }>(GET_DASHBOARD_STATS_QUERY);
 
-    if (response.errors || !response.data) {
-      console.error("GraphQL error fetching dashboard stats:", response.errors);
-      return { users: 0, operators: 0, posts: 0, pages: 0, requests: 0 };
+    // Log della risposta grezza per il debug
+    console.log("Raw dashboard stats response:", JSON.stringify(response, null, 2));
+
+    if (response.errors) {
+      console.error("GraphQL error fetching dashboard stats:", JSON.stringify(response.errors, null, 2));
+      return defaultStats;
+    }
+
+    if (!response.data) {
+      console.error("No data received for dashboard stats. Full response:", JSON.stringify(response, null, 2));
+      return defaultStats;
     }
 
     const data = response.data;
+
+    // Estrazione più robusta dei conteggi con fallback a 0
+    const usersCount = data.users?.aggregate?.count ?? 0;
+    const operatorsCount = data.operators?.aggregate?.count ?? 0;
+    const postsCount = data.posts?.aggregate?.count ?? 0;
+    const pagesCount = data.pages?.aggregate?.count ?? 0;
+    const requestsCount = data.requests?.aggregate?.count ?? 0;
+    
+    console.log("Processed counts:", { usersCount, operatorsCount, postsCount, pagesCount, requestsCount });
+
     return {
-      users: data.users.aggregate.count,
-      operators: data.operators.aggregate.count,
-      posts: data.posts.aggregate.count,
-      pages: data.pages.aggregate.count,
-      requests: data.requests.aggregate.count,
+      users: usersCount,
+      operators: operatorsCount,
+      posts: postsCount,
+      pages: pagesCount,
+      requests: requestsCount,
     };
   } catch (error) {
-    console.error("Error fetching dashboard stats:", error);
-    return { users: 0, operators: 0, posts: 0, pages: 0, requests: 0 };
+    console.error("Catch block: Error fetching dashboard stats:", error);
+    return defaultStats;
   }
 }
 
@@ -49,7 +69,7 @@ export default async function DashboardPage() {
     <div className="space-y-8">
       <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
       
-      {!stats ? (
+      {!stats ? ( // Questo blocco potrebbe non essere mai raggiunto se getDashboardData ritorna sempre defaultStats
          <div className="flex justify-center items-center h-64">
            <Loader2 className="h-8 w-8 animate-spin text-primary" />
            <span className="ml-2">Caricamento statistiche...</span>
