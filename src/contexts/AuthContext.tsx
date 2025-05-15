@@ -29,23 +29,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    // onAuthStatusChanged gestisce la logica di recupero utente
-    // e la trasformazione in AppUser.
-    // La funzione di cleanup (unsubscribe) viene restituita e chiamata quando il componente smonta.
     const unsubscribe = onAuthStatusChanged((appUser, fbUser) => {
       setUser(appUser);
       setFirebaseUser(fbUser);
       setLoading(false);
     });
-
-    return () => unsubscribe(); // Cleanup on unmount
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (!loading && !user && pathname !== '/login' && !pathname.startsWith('/_next/')) {
-      router.replace('/login');
-    } else if (!loading && user && pathname === '/login') {
-      router.replace('/dashboard');
+    if (!loading) {
+      const isAppPage = pathname.startsWith('/dashboard') || pathname.startsWith('/utenti') || pathname.startsWith('/operatori') || pathname.startsWith('/posts') || pathname.startsWith('/pagine') || pathname.startsWith('/richieste') || pathname.startsWith('/operator-dashboard') || pathname.startsWith('/tasse-sbarco') || pathname.startsWith('/permessi-veicoli');
+      
+      if (!user && isAppPage && pathname !== '/login') {
+        router.replace('/login');
+      } else if (user && pathname === '/login') {
+        if (user.role === 'operator') {
+          router.replace('/operator-dashboard');
+        } else {
+          router.replace('/dashboard');
+        }
+      } else if (user) {
+        // Redirect if user is on the wrong dashboard
+        if (user.role === 'operator' && pathname === '/dashboard') {
+          router.replace('/operator-dashboard');
+        } else if (user.role !== 'operator' && pathname === '/operator-dashboard') {
+          router.replace('/dashboard');
+        }
+        // Redirect if operator tries to access admin-only pages
+        if (user.role === 'operator' && (pathname.startsWith('/utenti') || pathname.startsWith('/operatori') || pathname.startsWith('/posts') || pathname.startsWith('/pagine') || pathname.startsWith('/richieste'))) {
+           router.replace('/operator-dashboard'); // Or a specific "access denied" page
+        }
+      }
     }
   }, [user, loading, pathname, router]);
   
@@ -53,18 +68,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, pass: string) => {
     setLoading(true);
     try {
-      // signInUserWithEmailAndPassword si occuperà di chiamare Firebase.
-      // onAuthStatusChanged aggiornerà lo stato utente.
       await signInUserWithEmailAndPassword(email, pass);
-      // La redirezione avverrà tramite l'useEffect che osserva [user, loading, pathname]
     } catch (error) {
       console.error("Failed to login with Firebase:", error);
-      // Qui potresti voler impostare un messaggio di errore specifico per il login
-      // Per ora, l'errore viene loggato e lo stato di caricamento gestito.
-      // L'utente rimarrà null se il login fallisce, e onAuthStatusChanged lo confermerà.
-      throw error; // Rilancia l'errore per gestirlo nel LoginForm
+      throw error; 
     } finally {
-      setLoading(false); // Assicurati che loading sia false dopo il tentativo
+      setLoading(false); 
     }
   };
 
@@ -72,8 +81,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await signOutUser();
-      // onAuthStatusChanged imposterà user a null e loading a false.
-      // La redirezione avverrà tramite l'useEffect.
     } catch (error) {
       console.error("Failed to logout with Firebase:", error);
       setLoading(false);

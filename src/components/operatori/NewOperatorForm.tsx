@@ -86,7 +86,7 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
         last_name: data.lastName,
         email: data.email,
         role: 'operator',
-        firebaseId: firebaseUid, // UID from Step 1
+        firebaseId: firebaseUid
       };
 
       const backendDbRegisterUrl = (process.env.NEXT_PUBLIC_FIREBASE_BASE_URL || 'https://europe-west3-tremti-n.cloudfunctions.net') + '/registerUser';

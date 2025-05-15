@@ -15,12 +15,12 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { LayoutDashboard, Users, Briefcase, FileText, BookOpen, ClipboardList, Settings, LogOut, UserCircle } from 'lucide-react';
+import { LayoutDashboard, Users, Briefcase, FileText, BookOpen, ClipboardList, Settings, LogOut, UserCircle, Ship, Ticket, Car } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
-import { parseImg } from '@/lib/utils'; // Import parseImg
+import { parseImg } from '@/lib/utils'; 
 
-const navItems = [
+const adminNavItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/utenti', label: 'Utenti', icon: Users },
   { href: '/operatori', label: 'Operatori', icon: Briefcase },
@@ -29,17 +29,24 @@ const navItems = [
   { href: '/richieste', label: 'Richieste', icon: ClipboardList },
 ];
 
+const operatorNavItems = [
+  { href: '/operator-dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/tasse-sbarco', label: 'Tasse di Sbarco', icon: Ship }, // Using Ship icon as placeholder
+  { href: '/permessi-veicoli', label: 'Permessi Veicoli', icon: Car }, // Using Car icon as placeholder
+];
+
 export function Sidebar() {
   const pathname = usePathname();
   const { user, logout, loading } = useAuth();
 
-  // Use a placeholder or a default logo if parseImg returns null
   const logoSrc = parseImg("https://placehold.co/40x40/29ABE2/FFFFFF.png?text=TN") || "https://placehold.co/40x40/29ABE2/FFFFFF.png?text=TN";
+
+  const navItemsToDisplay = user?.role === 'operator' ? operatorNavItems : adminNavItems;
 
   return (
     <UISidebar collapsible="icon">
       <SidebarHeader className="p-4 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href={user?.role === 'operator' ? "/operator-dashboard" : "/dashboard"} className="flex items-center gap-2">
             <Image 
               src={logoSrc} 
               alt="TremitiNow Logo" 
@@ -56,11 +63,11 @@ export function Sidebar() {
       <Separator />
       <SidebarContent className="p-2">
         <SidebarMenu>
-          {navItems.map((item) => (
+          {navItemsToDisplay.map((item) => (
             <SidebarMenuItem key={item.href}>
               <Link href={item.href} legacyBehavior passHref>
                 <SidebarMenuButton
-                  isActive={pathname.startsWith(item.href)}
+                  isActive={pathname === item.href || (item.href !== (user?.role === 'operator' ? "/operator-dashboard" : "/dashboard") && pathname.startsWith(item.href)) || (pathname === (user?.role === 'operator' ? "/operator-dashboard" : "/dashboard") && item.href === (user?.role === 'operator' ? "/operator-dashboard" : "/dashboard")) }
                   tooltip={{ children: item.label, side: "right", align: "center" }}
                   className="justify-start"
                 >

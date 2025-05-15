@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from 'react';
@@ -12,7 +13,11 @@ export default function HomePage() {
   useEffect(() => {
     if (!loading) {
       if (user) {
-        router.replace('/dashboard');
+        if (user.role === 'operator') {
+          router.replace('/operator-dashboard');
+        } else {
+          router.replace('/dashboard');
+        }
       } else {
         router.replace('/login');
       }
