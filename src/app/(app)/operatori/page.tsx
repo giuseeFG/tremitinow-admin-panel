@@ -1,10 +1,11 @@
 
+
 "use client";
 
 import type { User } from '@/types';
 import Image from 'next/image';
 import Link from 'next/link';
-import { MoreHorizontal, UserX, KeyRound, Trash2, PlusCircle, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { MoreHorizontal, KeyRound, Trash2, PlusCircle, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -37,7 +38,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/graphql/client';
-import { GET_USERS_BY_ROLE_QUERY, REMOVE_USER_MUTATION } from '@/lib/graphql/queries';
+import { GET_USERS_BY_ROLE_QUERY, REMOVE_USER_MUTATION, UPDATE_USER_STATUS_MUTATION } from '@/lib/graphql/queries';
 import { parseImg } from '@/lib/utils';
 
 // Placeholder functions for Firebase operations via backend API
@@ -107,7 +108,6 @@ export default function OperatoriPage() {
     const newPassword = window.prompt(`[DEMO] Inserisci la nuova password per ${operator.displayName || operator.email}:`);
     if (newPassword && operator.firebaseId) {
       try {
-        // Simulate API call
         await changeFirebaseUserPassword(operator.firebaseId, newPassword);
         toast({
           title: "Cambia Password (Simulato)",
@@ -128,36 +128,47 @@ export default function OperatoriPage() {
     }
   };
 
-  const handleToggleOperatorStatusAction = async (operatorId: number, currentStatus: boolean | undefined) => {
-    const operatorToUpdate = operators.find(op => op.id === operatorId);
-    if (!operatorToUpdate || !operatorToUpdate.firebaseId) {
+  const handleToggleOperatorStatusAction = async (operatorId: number) => {
+    const operatorToToggle = operators.find(op => op.id === operatorId);
+    if (!operatorToToggle || !operatorToToggle.firebaseId) {
       toast({ title: "Errore", description: "Operatore non trovato o ID Firebase mancante.", variant: "destructive" });
       return;
     }
     
-    const enable = !!currentStatus; // if currentStatus is true (disabled), then enable will be true (meaning we want to enable)
+    const currentStatusIsDisabled = operatorToToggle.status === 'disabled';
+    const newStatus = currentStatusIsDisabled ? 'active' : 'disabled';
+    const optimisticOperatorDisplay = operatorToToggle.displayName || operatorToToggle.email;
 
     try {
-      if (enable) {
-        await enableFirebaseUser(operatorToUpdate.firebaseId);
-      } else {
-        await disableFirebaseUser(operatorToUpdate.firebaseId);
+      // 1. Update status in Hasura
+      const dbResponse = await apiClient(UPDATE_USER_STATUS_MUTATION, { id: operatorToToggle.id, status: newStatus });
+      if (dbResponse.errors || !dbResponse.data?.update_users_by_pk) {
+        throw new Error(dbResponse.errors ? dbResponse.errors[0].message : "Failed to update operator status in database.");
       }
 
+      // 2. Conceptually update Firebase Auth status (requires backend)
+      if (newStatus === 'disabled') {
+        await disableFirebaseUser(operatorToToggle.firebaseId);
+      } else {
+        await enableFirebaseUser(operatorToToggle.firebaseId);
+      }
+      
+      // 3. Update local state
       setOperators(prevOperators =>
         prevOperators.map(op =>
-          op.id === operatorId ? { ...op, disabled: !enable, status: !enable ? 'disabled' : 'active' } : op
+          op.id === operatorId ? { ...op, status: newStatus, disabled: newStatus === 'disabled' } : op
         )
       );
       toast({
-        title: `Operatore ${enable ? 'Abilitato' : 'Disabilitato'} (Simulato)`,
-        description: `Lo stato di ${operatorToUpdate.displayName || operatorToUpdate.email} è stato (simulato) aggiornato.`,
+        title: `Operatore ${newStatus === 'active' ? 'Abilitato' : 'Disabilitato'}`,
+        description: `Lo stato di ${optimisticOperatorDisplay} è stato aggiornato.`,
       });
     } catch (error) {
-      console.error("Simulated status toggle error:", error);
+      console.error("Error toggling operator status:", error);
+      const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto durante il cambio stato.";
       toast({
-        title: "Errore Simulazione Stato",
-        description: `Impossibile simulare il cambio stato.`,
+        title: "Errore Cambio Stato",
+        description: `Impossibile cambiare lo stato di ${optimisticOperatorDisplay}: ${errorMessage}`,
         variant: "destructive",
       });
     }
@@ -247,6 +258,7 @@ export default function OperatoriPage() {
             <TableBody>
               {operators.map((operator) => {
                 const avatarSrc = parseImg(operator.avatar) || `https://placehold.co/40x40.png?text=${(operator.first_name || 'O')[0]}${(operator.last_name || 'P')[0]}`;
+                const isDisabled = operator.status === 'disabled'; // Derive from status string
                 return (
                   <TableRow key={operator.id}>
                     <TableCell>
@@ -264,8 +276,8 @@ export default function OperatoriPage() {
                     <TableCell className="text-muted-foreground">{operator.email}</TableCell>
                     <TableCell>{operator.created_at ? new Date(operator.created_at).toLocaleDateString('it-IT') : '-'}</TableCell>
                     <TableCell>
-                      <Badge variant={operator.disabled ? 'destructive' : 'default'}>
-                        {operator.disabled ? 'Disabilitato' : 'Attivo'}
+                      <Badge variant={isDisabled ? 'destructive' : 'default'}>
+                        {isDisabled ? 'Disabilitato' : 'Attivo'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -282,9 +294,9 @@ export default function OperatoriPage() {
                             <KeyRound className="mr-2 h-4 w-4" />
                             Cambia Password
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleToggleOperatorStatusAction(operator.id, operator.disabled)}>
-                             {operator.disabled ? <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> : <XCircle className="mr-2 h-4 w-4 text-red-500" />}
-                            {operator.disabled ? 'Abilita Operatore' : 'Disabilita Operatore'}
+                          <DropdownMenuItem onClick={() => handleToggleOperatorStatusAction(operator.id)}>
+                             {isDisabled ? <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> : <XCircle className="mr-2 h-4 w-4 text-red-500" />}
+                            {isDisabled ? 'Abilita Operatore' : 'Disabilita Operatore'}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                            <DropdownMenuItem

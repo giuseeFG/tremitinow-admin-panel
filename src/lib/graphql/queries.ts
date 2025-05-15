@@ -144,3 +144,15 @@ export const REMOVE_USER_MUTATION = `
     }
   }
 `;
+
+/**
+ * Mutation to update a user's status by their primary key (DB ID).
+ */
+export const UPDATE_USER_STATUS_MUTATION = `
+  mutation updateUserStatus($id: Int!, $status: String!) {
+    update_users_by_pk(pk_columns: {id: $id}, _set: {status: $status}) {
+      id
+      status
+    }
+  }
+`;

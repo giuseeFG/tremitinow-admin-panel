@@ -3,7 +3,7 @@
 
 import type { User } from '@/types';
 import Image from 'next/image';
-import { MoreHorizontal, UserX, KeyRound, Trash2, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { MoreHorizontal, KeyRound, Trash2, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -30,19 +30,19 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // AlertDialogTrigger is part of DropdownMenuItem now
+} from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/graphql/client';
-import { GET_USERS_BY_ROLE_QUERY, REMOVE_USER_MUTATION } from '@/lib/graphql/queries';
+import { GET_USERS_BY_ROLE_QUERY, REMOVE_USER_MUTATION, UPDATE_USER_STATUS_MUTATION } from '@/lib/graphql/queries';
 import { parseImg } from '@/lib/utils';
 
 // Placeholder functions for Firebase operations via backend API
 async function deleteFirebaseUser(uid: string): Promise<any> {
   console.warn(`[DEMO] deleteFirebaseUser called for UID: ${uid}. Backend implementation via apiFirebase needed.`);
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
   return { success: true, message: "Firebase user deletion simulated." };
 }
 
@@ -83,7 +83,7 @@ export default function UtentiPage() {
           const fetchedUsers: User[] = response.data.users.map(u => ({
             ...u,
             id: parseInt(u.id, 10),
-            disabled: u.status === 'disabled', // Assuming 'disabled' is a possible status
+            disabled: u.status === 'disabled', 
             displayName: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
           }));
           setUsers(fetchedUsers);
@@ -107,7 +107,6 @@ export default function UtentiPage() {
     const newPassword = window.prompt(`[DEMO] Inserisci la nuova password per ${user.displayName || user.email}:`);
     if (newPassword && user.firebaseId) {
       try {
-        // Simulate API call
         await changeFirebaseUserPassword(user.firebaseId, newPassword);
         toast({
           title: "Cambia Password (Simulato)",
@@ -128,36 +127,47 @@ export default function UtentiPage() {
     }
   };
 
-  const handleToggleUserStatusAction = async (userId: number, currentStatus: boolean | undefined) => {
-    const userToUpdate = users.find(u => u.id === userId);
-    if (!userToUpdate || !userToUpdate.firebaseId) {
+  const handleToggleUserStatusAction = async (userId: number) => {
+    const userToToggle = users.find(u => u.id === userId);
+    if (!userToToggle || !userToToggle.firebaseId) {
       toast({ title: "Errore", description: "Utente non trovato o ID Firebase mancante.", variant: "destructive" });
       return;
     }
 
-    const enable = !!currentStatus; // if currentStatus is true (disabled), then enable will be true (meaning we want to enable)
+    const currentStatusIsDisabled = userToToggle.status === 'disabled';
+    const newStatus = currentStatusIsDisabled ? 'active' : 'disabled';
+    const optimisticUserDisplay = userToToggle.displayName || userToToggle.email;
 
     try {
-      if (enable) {
-        await enableFirebaseUser(userToUpdate.firebaseId);
-      } else {
-        await disableFirebaseUser(userToUpdate.firebaseId);
+      // 1. Update status in Hasura
+      const dbResponse = await apiClient(UPDATE_USER_STATUS_MUTATION, { id: userToToggle.id, status: newStatus });
+      if (dbResponse.errors || !dbResponse.data?.update_users_by_pk) {
+        throw new Error(dbResponse.errors ? dbResponse.errors[0].message : "Failed to update user status in database.");
       }
 
+      // 2. Conceptually update Firebase Auth status (requires backend)
+      if (newStatus === 'disabled') {
+        await disableFirebaseUser(userToToggle.firebaseId);
+      } else {
+        await enableFirebaseUser(userToToggle.firebaseId);
+      }
+
+      // 3. Update local state
       setUsers(prevUsers =>
         prevUsers.map(u =>
-          u.id === userId ? { ...u, disabled: !enable, status: !enable ? 'disabled' : 'active' } : u
+          u.id === userId ? { ...u, status: newStatus, disabled: newStatus === 'disabled' } : u
         )
       );
       toast({
-        title: `Utente ${enable ? 'Abilitato' : 'Disabilitato'} (Simulato)`,
-        description: `Lo stato di ${userToUpdate.displayName || userToUpdate.email} è stato (simulato) aggiornato.`,
+        title: `Utente ${newStatus === 'active' ? 'Abilitato' : 'Disabilitato'}`,
+        description: `Lo stato di ${optimisticUserDisplay} è stato aggiornato.`,
       });
     } catch (error) {
-      console.error("Simulated status toggle error:", error);
+      console.error("Error toggling user status:", error);
+      const errorMessage = error instanceof Error ? error.message : "Errore sconosciuto durante il cambio stato.";
       toast({
-        title: "Errore Simulazione Stato",
-        description: `Impossibile simulare il cambio stato.`,
+        title: "Errore Cambio Stato",
+        description: `Impossibile cambiare lo stato di ${optimisticUserDisplay}: ${errorMessage}`,
         variant: "destructive",
       });
     }
@@ -239,6 +249,7 @@ export default function UtentiPage() {
             <TableBody>
               {users.map((user) => {
                 const avatarSrc = parseImg(user.avatar) || `https://placehold.co/40x40.png?text=${(user.first_name || 'U')[0]}${(user.last_name || 'N')[0]}`;
+                const isDisabled = user.status === 'disabled'; // Derive from status string
                 return (
                   <TableRow key={user.id}>
                     <TableCell>
@@ -256,8 +267,8 @@ export default function UtentiPage() {
                     <TableCell className="text-muted-foreground">{user.email}</TableCell>
                     <TableCell>{user.created_at ? new Date(user.created_at).toLocaleDateString('it-IT') : '-'}</TableCell>
                     <TableCell>
-                      <Badge variant={user.disabled ? 'destructive' : 'default'}>
-                        {user.disabled ? 'Disabilitato' : 'Attivo'}
+                      <Badge variant={isDisabled ? 'destructive' : 'default'}>
+                        {isDisabled ? 'Disabilitato' : 'Attivo'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -274,9 +285,9 @@ export default function UtentiPage() {
                             <KeyRound className="mr-2 h-4 w-4" />
                             Cambia Password
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleToggleUserStatusAction(user.id, user.disabled)}>
-                            {user.disabled ? <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> : <XCircle className="mr-2 h-4 w-4 text-red-500" />}
-                            {user.disabled ? 'Abilita Utente' : 'Disabilita Utente'}
+                          <DropdownMenuItem onClick={() => handleToggleUserStatusAction(user.id)}>
+                            {isDisabled ? <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> : <XCircle className="mr-2 h-4 w-4 text-red-500" />}
+                            {isDisabled ? 'Abilita Utente' : 'Disabilita Utente'}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                            <DropdownMenuItem
