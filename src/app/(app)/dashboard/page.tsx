@@ -8,33 +8,32 @@ interface DashboardStats {
   users: number;
   operators: number;
   posts: number;
-  pages: number; // Corresponds to groups_aggregate
+  pages: number; 
   requests: number;
 }
 
 async function getDashboardData(): Promise<DashboardStats> {
   try {
     const response = await apiClient<{ 
-      users_aggregate: { aggregate: { count: number } },
-      operators_aggregate: { aggregate: { count: number } },
-      groups_aggregate: { aggregate: { count: number } },
-      posts_aggregate: { aggregate: { count: number } },
-      form_requests_aggregate: { aggregate: { count: number } }
+      users: { aggregate: { count: number } },
+      operators: { aggregate: { count: number } },
+      pages: { aggregate: { count: number } }, // Corresponds to groups_aggregate aliased as pages
+      posts: { aggregate: { count: number } },
+      requests: { aggregate: { count: number } }
     }>(GET_DASHBOARD_STATS_QUERY);
 
     if (response.errors || !response.data) {
       console.error("GraphQL error fetching dashboard stats:", response.errors);
-      // Return zeros or throw an error, based on how you want to handle this
       return { users: 0, operators: 0, posts: 0, pages: 0, requests: 0 };
     }
 
     const data = response.data;
     return {
-      users: data.users_aggregate.aggregate.count,
-      operators: data.operators_aggregate.aggregate.count,
-      posts: data.posts_aggregate.aggregate.count,
-      pages: data.groups_aggregate.aggregate.count,
-      requests: data.form_requests_aggregate.aggregate.count,
+      users: data.users.aggregate.count,
+      operators: data.operators.aggregate.count,
+      posts: data.posts.aggregate.count,
+      pages: data.pages.aggregate.count,
+      requests: data.requests.aggregate.count,
     };
   } catch (error) {
     console.error("Error fetching dashboard stats:", error);

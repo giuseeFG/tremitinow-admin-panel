@@ -162,30 +162,31 @@ export const UPDATE_USER_STATUS_MUTATION = `
  */
 export const GET_DASHBOARD_STATS_QUERY = `
   query getDashboardStats {
-    users_aggregate(where: {role: {_eq: "user"}}) {
+    users: users_aggregate(where: {role: {_eq: "user"}}) {
       aggregate {
         count
       }
     }
-    operators_aggregate: users_aggregate(where: {role: {_eq: "operator"}}) {
+    operators: users_aggregate(where: {role: {_eq: "operator"}}) {
       aggregate {
         count
       }
     }
-    groups_aggregate { # This will count for "Pagine"
+    pages: groups_aggregate { # This will count for "Pagine"
       aggregate {
         count
       }
     }
-    posts_aggregate {
+    posts: posts_aggregate {
       aggregate {
         count
       }
     }
-    form_requests_aggregate {
+    requests: form_requests_aggregate {
       aggregate {
         count
       }
     }
   }
 `;
+
