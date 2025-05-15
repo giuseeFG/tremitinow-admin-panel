@@ -96,33 +96,43 @@ export const GET_PAGES_QUERY = `
  * This query is for the detail view of a page.
  */
 export const GET_PAGE_BY_ID_QUERY = `
-  query GetPageById($id: Int!) {
-    groups_by_pk(id: $id) {
+  query getPageByID($id: Int!) {
+  groups_by_pk(id: $id) {
+    active
+    additional_btn_text
+    additional_url
+    address
+    avatar
+    btn_info_text
+    can_publish_on_fb
+    can_send_notification
+    category
+    cover
+    created_at
+    email
+    description
+    exclude_from_map_bounce
+    group_categories
+    facebook
+    id
+    instagram
+    lat
+    lng
+    old_firebasePageId
+    phone
+    private
+    title
+    updated_at
+    web
+    group_categories_2 {
       id
-      title
-      description # This is the main content for the page
-      active
-      can_send_notification
-      can_publish_on_fb
-      additional_btn_text
-      additional_url
-      btn_info_text
-      facebook
-      instagram
-      email
-      phone
-      avatar
-      cover
-      created_at
-      group_categories_2 {
-        category_fk: groups_category_group_category_id {
-          id
-          category
-        }
+      category:group_categories_2_group_category {
+        id
+        category
       }
-      # Add any other fields from 'groups' table you want as metadata
     }
   }
+}
 `;
 
 /**

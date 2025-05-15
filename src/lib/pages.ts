@@ -14,6 +14,7 @@ import {
 export async function getPageByID(id: number): Promise<Page | null> {
   try {
     const response = await apiClient<{ groups_by_pk: any }>(GET_PAGE_BY_ID_QUERY, { id });
+    console.log('pageIddd', response);
     if (response.errors || !response.data || !response.data.groups_by_pk) {
       console.error("GraphQL errors fetching page by ID:", response.errors);
       return null;
