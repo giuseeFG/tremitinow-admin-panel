@@ -14,7 +14,7 @@ export function Navbar() {
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/80 px-4 shadow-sm backdrop-blur-md sm:px-6">
       <div className="flex items-center gap-2">
         {isMobile && <SidebarTrigger />}
-        <h1 className="text-xl font-semibold text-primary">Tremiti Today</h1>
+        <h1 className="text-xl font-semibold text-primary">TremitiNow</h1>
       </div>
       <div className="flex items-center gap-3">
         {user && (

@@ -34,7 +34,7 @@ export function Sidebar() {
   const { user, logout, loading } = useAuth();
 
   // Use a placeholder or a default logo if parseImg returns null
-  const logoSrc = parseImg("https://placehold.co/40x40/29ABE2/FFFFFF.png?text=TT") || "https://placehold.co/40x40/29ABE2/FFFFFF.png?text=TT";
+  const logoSrc = parseImg("https://placehold.co/40x40/29ABE2/FFFFFF.png?text=TN") || "https://placehold.co/40x40/29ABE2/FFFFFF.png?text=TN";
 
   return (
     <UISidebar collapsible="icon">
@@ -42,12 +42,12 @@ export function Sidebar() {
           <Link href="/dashboard" className="flex items-center gap-2">
             <Image 
               src={logoSrc} 
-              alt="Tremiti Today Logo" 
+              alt="TremitiNow Logo" 
               width={32} height={32} 
               className="rounded-md" 
               data-ai-hint="logo initial"
             />
-            <span className="font-semibold text-lg text-primary group-data-[collapsible=icon]:hidden">Tremiti Today</span>
+            <span className="font-semibold text-lg text-primary group-data-[collapsible=icon]:hidden">TremitiNow</span>
           </Link>
           <div className="group-data-[collapsible=icon]:hidden">
              <SidebarTrigger />

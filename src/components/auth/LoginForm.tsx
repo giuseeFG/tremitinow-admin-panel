@@ -28,7 +28,7 @@ export function LoginForm() {
   return (
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader className="text-center">
-        <CardTitle className="text-3xl font-bold text-primary">Tremiti Today</CardTitle>
+        <CardTitle className="text-3xl font-bold text-primary">TremitiNow</CardTitle>
         <CardDescription>Admin Panel Login</CardDescription>
       </CardHeader>
       <CardContent>
