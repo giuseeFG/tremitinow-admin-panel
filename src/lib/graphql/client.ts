@@ -3,11 +3,8 @@
 
 import { auth } from '@/lib/firebase/config'; // Import Firebase auth instance
 
-// This is a placeholder for your GraphQL client configuration.
-// You would typically use a library like Apollo Client, urql, or a simple fetch wrapper.
-
 const HASURA_ENDPOINT = process.env.NEXT_PUBLIC_GRAPHQL_BASE_URL || 'https://api.tremitinow.next2me.cloud/v1/graphql';
-const HASURA_ADMIN_SECRET = process.env.HASURA_GRAPHQL_ADMIN_SECRET; 
+const HASURA_ADMIN_SECRET = process.env.HASURA_GRAPHQL_ADMIN_SECRET;
 
 interface GraphQLResponse<T = any> {
   data?: T;
@@ -17,7 +14,7 @@ interface GraphQLResponse<T = any> {
 /**
  * Client for making GraphQL requests to Hasura.
  * Includes Firebase ID token for authenticated users.
- * 
+ *
  * @param query The GraphQL query string.
  * @param variables Optional variables for the query.
  * @returns Promise<GraphQLResponse<T>>
@@ -26,9 +23,9 @@ export async function apiClient<T = any>(
   query: string,
   variables?: Record<string, any>
 ): Promise<GraphQLResponse<T>> {
-  if (!HASURA_ENDPOINT || HASURA_ENDPOINT.includes('YOUR_HASURA_ENDPOINT_HERE') || HASURA_ENDPOINT === 'https://api.tremitinow.next2me.cloud/v1/graphqlundefined') { 
+  if (!HASURA_ENDPOINT || HASURA_ENDPOINT.includes('YOUR_HASURA_ENDPOINT_HERE') || HASURA_ENDPOINT === 'https://api.tremitinow.next2me.cloud/v1/graphqlundefined') {
     const errorMsg = 'Hasura endpoint is not configured correctly or is using a placeholder/default. Current endpoint: ' + HASURA_ENDPOINT;
-    console.error(errorMsg);
+    console.error("[apiClient] Error: " + errorMsg);
     return { errors: [{ message: errorMsg }] };
   }
 
@@ -39,19 +36,27 @@ export async function apiClient<T = any>(
   // Get Firebase ID token for the current user
   const currentUser = auth.currentUser;
   if (currentUser) {
+    console.log("[apiClient] Current user found (uid:", currentUser.uid,"). Attempting to get ID token.");
     try {
       const token = await currentUser.getIdToken();
+      console.log("[apiClient] Firebase ID Token obtained. Setting Authorization header.");
       headers['Authorization'] = `Bearer ${token}`;
     } catch (error) {
-      console.error("Error getting Firebase ID token:", error);
-      // Optionally, you might want to prevent the request or handle this error differently
+      console.error("[apiClient] Error getting Firebase ID token:", error);
     }
-  } else if (HASURA_ADMIN_SECRET && typeof window === 'undefined') { 
-    // Fallback to admin secret if no user is logged in AND if server-side + secret is present
-    // WARNING: Using admin secret on client-side is generally a security risk.
-    // This condition ensures it's only added if no user token is available and it's a server-side context.
-    headers['x-hasura-admin-secret'] = HASURA_ADMIN_SECRET;
+  } else {
+    console.log("[apiClient] No current Firebase user found (auth.currentUser is null). Token will not be sent via user session.");
+    if (HASURA_ADMIN_SECRET && typeof window === 'undefined') {
+      // This condition means it's running on the server (typeof window === 'undefined')
+      // and an admin secret is available.
+      console.log("[apiClient] Using Hasura Admin Secret as fallback for server-side request.");
+      headers['x-hasura-admin-secret'] = HASURA_ADMIN_SECRET;
+    } else {
+      console.log("[apiClient] No user token and no admin secret fallback for this context (e.g., client-side unauthenticated, or server-side without admin secret).");
+    }
   }
+
+  console.log("[apiClient] Making fetch request to:", HASURA_ENDPOINT, "with headers:", Object.keys(headers));
 
 
   try {
@@ -62,18 +67,17 @@ export async function apiClient<T = any>(
     });
 
     if (!response.ok) {
-      // Handle HTTP errors
       const errorBody = await response.text();
       const httpErrorMsg = `GraphQL HTTP Error: ${response.status} ${errorBody}`;
-      console.error(httpErrorMsg);
+      console.error("[apiClient] " + httpErrorMsg);
       return { errors: [{ message: httpErrorMsg }] };
     }
 
     const result: GraphQLResponse<T> = await response.json();
     if (result.errors) {
       console.error(
-        'GraphQL query/mutation failed. This is an error response from the Hasura server. Potential causes: permissions issues for the current role, invalid data, or schema mismatches. Check Hasura logs and permissions for the role and table involved. GraphQL Errors:',
-        JSON.stringify(result.errors, null, 2) // Stringify for better readability in console
+        "[apiClient] GraphQL query/mutation failed. This is an error response from the Hasura server. Potential causes: permissions issues for the current role, invalid data, or schema mismatches. Check Hasura logs and permissions for the role and table involved. GraphQL Errors:",
+        JSON.stringify(result.errors, null, 2)
       );
     }
     return result;
@@ -83,18 +87,10 @@ export async function apiClient<T = any>(
     if (error instanceof Error) {
       errorMessage = error.message;
     }
-    console.error('GraphQL Request Failed:', errorMessage, error);
-    // Check for "Failed to construct 'URL': Invalid URL" specifically if error is TypeError
+    console.error('[apiClient] GraphQL Request Failed:', errorMessage, error);
     if (error instanceof TypeError && errorMessage.includes("Failed to construct 'URL'")) {
-      console.error("Potential cause: HASURA_ENDPOINT might be invalid or undefined. Current value:", HASURA_ENDPOINT);
+      console.error("[apiClient] Potential cause: HASURA_ENDPOINT might be invalid or undefined. Current value:", HASURA_ENDPOINT);
     }
     return { errors: [{ message: errorMessage }] };
   }
 }
-
-// Example of how you might get an auth token (placeholder)
-// function getAuthToken(): string | null {
-//   // Replace with your actual token retrieval logic, e.g., from AuthContext or localStorage
-//   return typeof window !== 'undefined' ? localStorage.getItem('authToken') : null; 
-// }
-
