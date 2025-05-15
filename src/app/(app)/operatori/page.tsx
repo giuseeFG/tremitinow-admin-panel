@@ -39,30 +39,101 @@ import React, { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/graphql/client';
 import { GET_USERS_BY_ROLE_QUERY, REMOVE_USER_MUTATION, UPDATE_USER_STATUS_MUTATION } from '@/lib/graphql/queries';
 import { parseImg } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { NewOperatorForm } from '@/components/operatori/NewOperatorForm';
 
-// Placeholder functions for Firebase operations via backend API
+const FIREBASE_FUNCTIONS_BASE_URL = process.env.NEXT_PUBLIC_FIREBASE_BASE_URL || "https://europe-west3-tremti-n.cloudfunctions.net";
+
 async function deleteFirebaseUser(uid: string): Promise<any> {
-  console.warn(`[DEMO] deleteFirebaseUser called for UID: ${uid}. Backend implementation via apiFirebase needed.`);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return { success: true, message: "Firebase user deletion simulated." };
+  console.log(`[API_CALL] Attempting to delete Firebase user UID: ${uid} via ${FIREBASE_FUNCTIONS_BASE_URL}/removeFirebaseUser`);
+  try {
+    const response = await fetch(`${FIREBASE_FUNCTIONS_BASE_URL}/removeFirebaseUser`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[API_CALL_ERROR] Failed to delete Firebase user ${uid}. Status: ${response.status}, Body: ${errorText}`);
+      throw new Error(`Failed to delete Firebase user: ${errorText || response.statusText}`);
+    }
+    const data = await response.json();
+    console.log(`[API_CALL_SUCCESS] deleteFirebaseUser for UID ${uid}:`, data.result);
+    return data.result;
+  } catch (error) {
+    console.error(`[API_CALL_EXCEPTION] Error deleting Firebase user ${uid}:`, error);
+    return null;
+  }
 }
 
 async function disableFirebaseUser(uid: string): Promise<any> {
-  console.warn(`[DEMO] disableFirebaseUser called for UID: ${uid}. Backend implementation via apiFirebase needed.`);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return { success: true, message: "Firebase user disable simulated." };
+  console.log(`[API_CALL] Attempting to disable Firebase user UID: ${uid} via ${FIREBASE_FUNCTIONS_BASE_URL}/disableFirebaseUser`);
+  try {
+    const response = await fetch(`${FIREBASE_FUNCTIONS_BASE_URL}/disableFirebaseUser`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[API_CALL_ERROR] Failed to disable Firebase user ${uid}. Status: ${response.status}, Body: ${errorText}`);
+      throw new Error(`Failed to disable Firebase user: ${errorText || response.statusText}`);
+    }
+    const data = await response.json();
+    console.log(`[API_CALL_SUCCESS] disableFirebaseUser for UID ${uid}:`, data.result);
+    return data.result;
+  } catch (error) {
+    console.error(`[API_CALL_EXCEPTION] Error disabling Firebase user ${uid}:`, error);
+    return null;
+  }
 }
 
 async function enableFirebaseUser(uid: string): Promise<any> {
-  console.warn(`[DEMO] enableFirebaseUser called for UID: ${uid}. Backend implementation via apiFirebase needed.`);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return { success: true, message: "Firebase user enable simulated." };
+  console.log(`[API_CALL] Attempting to enable Firebase user UID: ${uid} via ${FIREBASE_FUNCTIONS_BASE_URL}/enableFirebaseUser`);
+  try {
+    const response = await fetch(`${FIREBASE_FUNCTIONS_BASE_URL}/enableFirebaseUser`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[API_CALL_ERROR] Failed to enable Firebase user ${uid}. Status: ${response.status}, Body: ${errorText}`);
+      throw new Error(`Failed to enable Firebase user: ${errorText || response.statusText}`);
+    }
+    const data = await response.json();
+    console.log(`[API_CALL_SUCCESS] enableFirebaseUser for UID ${uid}:`, data.result);
+    return data.result;
+  } catch (error) {
+    console.error(`[API_CALL_EXCEPTION] Error enabling Firebase user ${uid}:`, error);
+    return null;
+  }
 }
 
 async function changeFirebaseUserPassword(uid: string, newPassword?: string): Promise<any> {
-  console.warn(`[DEMO] changeFirebaseUserPassword called for UID: ${uid} (password not shown for security). Backend implementation via apiFirebase needed.`);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return { success: true, message: "Firebase user password change simulated." };
+  console.log(`[API_CALL] Attempting to change password for UID: ${uid} via ${FIREBASE_FUNCTIONS_BASE_URL}/setPassword`);
+  if (!newPassword) {
+    console.warn("[API_CALL] No new password provided for changeFirebaseUserPassword.");
+    return null;
+  }
+  try {
+    const response = await fetch(`${FIREBASE_FUNCTIONS_BASE_URL}/setPassword`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid, password: newPassword }),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[API_CALL_ERROR] Failed to change password for UID ${uid}. Status: ${response.status}, Body: ${errorText}`);
+      throw new Error(`Failed to change password: ${errorText || response.statusText}`);
+    }
+    const data = await response.json();
+    console.log(`[API_CALL_SUCCESS] changeFirebaseUserPassword for UID ${uid}:`, data.result);
+    return data.result;
+  } catch (error) {
+    console.error(`[API_CALL_EXCEPTION] Error changing password for UID ${uid}:`, error);
+    return null;
+  }
 }
 
 
@@ -73,50 +144,56 @@ export default function OperatoriPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [operatorToDelete, setOperatorToDelete] = useState<User | null>(null);
   const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
+  const [isCreateOperatorDialogOpen, setIsCreateOperatorDialogOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchOperators = async () => {
-      setLoading(true);
-      try {
-        const response = await apiClient<{ users: any[] }>(GET_USERS_BY_ROLE_QUERY, { role: 'operator' });
-        if (response.data && response.data.users) {
-          const fetchedOperators: User[] = response.data.users.map(u => ({
-            ...u,
-            id: parseInt(u.id, 10),
-            disabled: u.status === 'DISABLED',
-            displayName: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
-          }));
-          setOperators(fetchedOperators);
-        } else if (response.errors) {
-          console.error("GraphQL errors fetching operators:", response.errors);
-          toast({ title: "Errore Caricamento Operatori", description: `Impossibile caricare gli operatori: ${response.errors[0].message}`, variant: "destructive" });
-        } else {
-           toast({ title: "Errore Dati Operatori", description: "Nessun dato operatore ricevuto.", variant: "destructive" });
-        }
-      } catch (error) {
-        console.error("Failed to fetch operators:", error);
-        toast({ title: "Errore di Rete", description: "Impossibile connettersi al server per caricare gli operatori.", variant: "destructive" });
-      } finally {
-        setLoading(false);
+  const fetchOperators = async () => {
+    setLoading(true);
+    try {
+      const response = await apiClient<{ users: any[] }>(GET_USERS_BY_ROLE_QUERY, { role: 'operator' });
+      if (response.data && response.data.users) {
+        const fetchedOperators: User[] = response.data.users.map(u => ({
+          ...u,
+          id: parseInt(u.id, 10),
+          disabled: u.status === 'DISABLED',
+          displayName: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
+        }));
+        setOperators(fetchedOperators);
+      } else if (response.errors) {
+        console.error("GraphQL errors fetching operators:", response.errors);
+        toast({ title: "Errore Caricamento Operatori", description: `Impossibile caricare gli operatori: ${response.errors[0].message}`, variant: "destructive" });
+      } else {
+         toast({ title: "Errore Dati Operatori", description: "Nessun dato operatore ricevuto.", variant: "destructive" });
       }
-    };
+    } catch (error) {
+      console.error("Failed to fetch operators:", error);
+      toast({ title: "Errore di Rete", description: "Impossibile connettersi al server per caricare gli operatori.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
     fetchOperators();
   }, [toast]);
 
   const handlePasswordChangeAction = async (operator: User) => {
-    const newPassword = window.prompt(`[DEMO] Inserisci la nuova password per ${operator.displayName || operator.email}:`);
+    const newPassword = window.prompt(`Inserisci la nuova password per ${operator.displayName || operator.email}:`);
     if (newPassword && operator.firebaseId) {
       try {
-        await changeFirebaseUserPassword(operator.firebaseId, newPassword);
+        const result = await changeFirebaseUserPassword(operator.firebaseId, newPassword);
+        if (result) { // Assuming result indicates success
+          toast({
+            title: "Cambia Password",
+            description: `La password per ${operator.displayName || operator.email} è stata cambiata.`,
+          });
+        } else {
+          throw new Error("L'operazione di cambio password è fallita o non ha restituito un successo.");
+        }
+      } catch (error: any) {
+        console.error("Password change error:", error);
         toast({
-          title: "Cambia Password (Simulato)",
-          description: `La password per ${operator.displayName || operator.email} è stata (simulata) cambiata.`,
-        });
-      } catch (error) {
-        console.error("Simulated password change error:", error);
-        toast({
-          title: "Errore Simulazione Password",
-          description: `Impossibile simulare il cambio password.`,
+          title: "Errore Cambio Password",
+          description: error.message || `Impossibile cambiare la password.`,
           variant: "destructive",
         });
       }
@@ -148,14 +225,19 @@ export default function OperatoriPage() {
       console.log(`Hasura status update for operator ${operatorId} to ${newStatus} successful.`);
       
       console.log(`Attempting to update Firebase status for operator ${operatorToToggle.firebaseId} to ${newStatus}.`);
+      let firebaseUpdateResult;
       if (newStatus === 'DISABLED') {
         console.log(`Calling disableFirebaseUser for ${operatorToToggle.firebaseId}.`);
-        await disableFirebaseUser(operatorToToggle.firebaseId);
+        firebaseUpdateResult = await disableFirebaseUser(operatorToToggle.firebaseId);
       } else {
         console.log(`Calling enableFirebaseUser for ${operatorToToggle.firebaseId}.`);
-        await enableFirebaseUser(operatorToToggle.firebaseId);
+        firebaseUpdateResult = await enableFirebaseUser(operatorToToggle.firebaseId);
       }
-      console.log(`Firebase status update for operator ${operatorToToggle.firebaseId} (simulated) complete.`);
+
+      if (!firebaseUpdateResult) { // Assuming result indicates success
+         throw new Error("L'operazione di aggiornamento Firebase è fallita.");
+      }
+      console.log(`Firebase status update for operator ${operatorToToggle.firebaseId} complete.`);
       
       setOperators(prevOperators =>
         prevOperators.map(op =>
@@ -174,6 +256,7 @@ export default function OperatoriPage() {
         description: `Impossibile cambiare lo stato di ${optimisticOperatorDisplay}: ${errorMessage}`,
         variant: "destructive",
       });
+       // Revert optimistic UI update or refetch if necessary, or rely on next fetch
     }
   };
 
@@ -190,20 +273,26 @@ export default function OperatoriPage() {
     const operatorNameToDelete = operatorToDelete.displayName || operatorToDelete.email || "Operatore Selezionato";
 
     try {
+      // 1. Delete from Hasura DB
       const dbResponse = await apiClient(REMOVE_USER_MUTATION, { id: operatorToDelete.id });
       if (dbResponse.errors || !dbResponse.data?.delete_users_by_pk) {
         throw new Error(dbResponse.errors ? dbResponse.errors[0].message : "Failed to delete operator from database.");
       }
 
+      // 2. Delete from Firebase Auth via backend function
       if (operatorToDelete.firebaseId) {
-        await deleteFirebaseUser(operatorToDelete.firebaseId);
+        const firebaseDeleteResult = await deleteFirebaseUser(operatorToDelete.firebaseId);
+        if (!firebaseDeleteResult) { // Assuming result indicates success
+          console.warn(`Firebase user ${operatorToDelete.firebaseId} might not have been deleted if backend call failed or returned falsy.`);
+          // Decide if this should be a hard error or a soft warning
+          // For now, we proceed but log a warning.
+        }
       }
 
       setOperators(prevOperators => prevOperators.filter(op => op.id !== operatorToDelete.id));
       toast({
         title: "Operatore Eliminato",
-        description: `L'operatore ${operatorNameToDelete} è stato eliminato con successo.`,
-        variant: "destructive"
+        description: `L'operatore ${operatorNameToDelete} è stato eliminato.`,
       });
     } catch (error) {
       console.error("Error deleting operator:", error);
@@ -220,7 +309,13 @@ export default function OperatoriPage() {
     }
   };
 
-  if (loading) {
+  const handleOperatorCreated = () => {
+    setIsCreateOperatorDialogOpen(false);
+    fetchOperators(); // Refetch operators to include the new one
+  };
+
+
+  if (loading && !isCreateOperatorDialogOpen) { // Don't show main loading if dialog is open
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -236,11 +331,9 @@ export default function OperatoriPage() {
           <div>
             <CardTitle className="text-2xl font-bold text-foreground">Gestione Operatori</CardTitle>
           </div>
-          <Button asChild>
-            <Link href="/operatori/new">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Aggiungi Operatore
-            </Link>
+          <Button onClick={() => setIsCreateOperatorDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Aggiungi Operatore
           </Button>
         </CardHeader>
         <CardContent>
@@ -327,7 +420,7 @@ export default function OperatoriPage() {
               <AlertDialogTitle>Conferma Eliminazione</AlertDialogTitle>
               <AlertDialogDescription>
                 Sei sicuro di voler eliminare l'operatore {operatorToDelete?.displayName || operatorToDelete?.email}? Questa azione non può essere annullata.
-                L'operatore verrà rimosso dal database e il suo account Firebase verrà (concettualmente) eliminato.
+                L'operatore verrà rimosso dal database e il suo account Firebase verrà eliminato.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -339,8 +432,19 @@ export default function OperatoriPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isCreateOperatorDialogOpen} onOpenChange={setIsCreateOperatorDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Crea Nuovo Operatore</DialogTitle>
+            <DialogDescription>
+              Compila i campi sottostanti per creare un nuovo operatore.
+              Verrà inviata un'email per impostare la password.
+            </DialogDescription>
+          </DialogHeader>
+          <NewOperatorForm onOperatorCreated={handleOperatorCreated} />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
-
-    
