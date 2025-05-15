@@ -24,7 +24,6 @@ const newOperatorSchema = z.object({
   firstName: z.string().min(2, { message: "Il nome deve contenere almeno 2 caratteri." }),
   lastName: z.string().min(2, { message: "Il cognome deve contenere almeno 2 caratteri." }),
   email: z.string().email({ message: "Inserisci un indirizzo email valido." }),
-  // Il campo password è stato rimosso dallo schema e dal form, verrà generata casualmente
 });
 
 type NewOperatorFormData = z.infer<typeof newOperatorSchema>;
@@ -48,47 +47,74 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
 
   async function onSubmit(data: NewOperatorFormData) {
     setIsSubmitting(true);
-    const randomPassword = crypto.randomUUID(); // Genera password casuale
-
-    const newUserPayload: Partial<AppUser> & { password?: string } = {
-      first_name: data.firstName,
-      last_name: data.lastName,
-      email: data.email,
-      role: 'operator',
-      password: randomPassword, // Includi la password generata
-    };
+    let firebaseUid: string | null = null;
 
     try {
-      const backendRegisterUrl = (process.env.NEXT_PUBLIC_FIREBASE_BASE_URL || 'https://europe-west3-tremti-n.cloudfunctions.net') + '/registerUser';
-      console.log("Attempting to register operator via backend endpoint:", backendRegisterUrl, "with payload (password omitted from log):", { ...newUserPayload, password: '[REDACTED]' });
+      // Step 1: Call backend to create Firebase user
+      const firebaseRegisterUrl = (process.env.NEXT_PUBLIC_FIREBASE_BASE_URL || 'https://europe-west3-tremti-n.cloudfunctions.net') + '/registerFirebaseUser';
+      console.log("Attempting to register Firebase user via backend endpoint:", firebaseRegisterUrl, "with payload:", { email: data.email });
 
-      const backendResponse = await fetch(backendRegisterUrl, {
+      const firebaseResponse = await fetch(firebaseRegisterUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ object: newUserPayload }), // Assicurati che il backend si aspetti questo formato
+        body: JSON.stringify({ email: data.email }),
       });
 
-      if (!backendResponse.ok) {
-        const errorText = await backendResponse.text();
+      if (!firebaseResponse.ok) {
+        const errorText = await firebaseResponse.text();
         let errorData: any = errorText;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch (e) {
-          // errorData remains text if JSON parsing fails
-        }
-        console.error("Backend registration error:", backendResponse.status, errorData);
+        try { errorData = JSON.parse(errorText); } catch (e) { /* errorData remains text */ }
+        console.error("Backend Firebase registration error:", firebaseResponse.status, errorData);
         const message = typeof errorData === 'object' && errorData.message ? errorData.message :
-                        (typeof errorData === 'string' && errorData.length > 0 ? errorData : `Errore HTTP: ${backendResponse.status}`);
-        throw new Error(`Registrazione operatore fallita: ${message}`);
+                        (typeof errorData === 'string' && errorData.length > 0 ? errorData : `Errore HTTP: ${firebaseResponse.status}`);
+        throw new Error(`Registrazione utente Firebase fallita: ${message}`);
       }
 
-      const backendResult = await backendResponse.json();
-      console.log("Backend registration successful:", backendResult);
+      const firebaseResult = await firebaseResponse.json();
+      if (!firebaseResult || !firebaseResult.uid) {
+        console.error("Backend Firebase registration did not return UID:", firebaseResult);
+        throw new Error("L'endpoint di registrazione Firebase non ha restituito un UID.");
+      }
+      firebaseUid = firebaseResult.uid;
+      console.log("Firebase user registered via backend, UID:", firebaseUid);
+
+      // Step 2: Call backend to register user in database
+      const newUserPayloadForDb: Partial<AppUser> & { firebaseId: string } = {
+        first_name: data.firstName,
+        last_name: data.lastName,
+        email: data.email,
+        role: 'operator',
+        firebaseId: firebaseUid, // UID from Step 1
+      };
+
+      const backendDbRegisterUrl = (process.env.NEXT_PUBLIC_FIREBASE_BASE_URL || 'https://europe-west3-tremti-n.cloudfunctions.net') + '/registerUser';
+      console.log("Attempting to register operator in DB via backend endpoint:", backendDbRegisterUrl, "with payload:", { object: newUserPayloadForDb });
+
+      const dbResponse = await fetch(backendDbRegisterUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ object: newUserPayloadForDb }),
+      });
+
+      if (!dbResponse.ok) {
+        const errorText = await dbResponse.text();
+        let errorData: any = errorText;
+        try { errorData = JSON.parse(errorText); } catch (e) { /* errorData remains text */ }
+        console.error("Backend DB registration error:", dbResponse.status, errorData);
+        const message = typeof errorData === 'object' && errorData.message ? errorData.message :
+                        (typeof errorData === 'string' && errorData.length > 0 ? errorData : `Errore HTTP: ${dbResponse.status}`);
+        throw new Error(`Registrazione operatore nel database fallita: ${message}`);
+      }
+
+      const dbResult = await dbResponse.json();
+      console.log("Operator registered in DB via backend:", dbResult);
       toast({ title: "Operatore Registrato", description: `L'operatore ${data.firstName} ${data.lastName} è stato creato.` });
 
-      // Invia email di reset password
+      // Step 3: Send password reset email
       console.log("Attempting to send password reset email to:", data.email);
       await sendPasswordReset(data.email);
       toast({
@@ -97,7 +123,7 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
       });
       console.log("Password reset email sent successfully.");
 
-      form.reset(); // Resetta il form dopo il successo
+      form.reset();
       if (typeof onOperatorCreated === 'function') {
         onOperatorCreated();
       } else {
@@ -159,7 +185,6 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
             </FormItem>
           )}
         />
-        {/* Il campo password è stato rimosso dal form, viene generata casualmente */}
         <div className="flex justify-end gap-2 pt-4">
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
