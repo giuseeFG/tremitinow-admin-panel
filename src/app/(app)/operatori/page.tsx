@@ -146,22 +146,26 @@ export default function OperatoriPage() {
   const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
   const [isCreateOperatorDialogOpen, setIsCreateOperatorDialogOpen] = useState(false);
 
-  const fetchOperators = async () => {
+  const fetchOperators = React.useCallback(async () => {
     setLoading(true);
     try {
+      console.log("Fetching operators...");
       const response = await apiClient<{ users: any[] }>(GET_USERS_BY_ROLE_QUERY, { role: 'operator' });
       if (response.data && response.data.users) {
         const fetchedOperators: User[] = response.data.users.map(u => ({
           ...u,
           id: parseInt(u.id, 10),
+          status: u.status || 'ACTIVE', // Default to ACTIVE if status is null/undefined
           disabled: u.status === 'DISABLED',
           displayName: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
         }));
+        console.log("Operators fetched:", fetchedOperators);
         setOperators(fetchedOperators);
       } else if (response.errors) {
         console.error("GraphQL errors fetching operators:", response.errors);
         toast({ title: "Errore Caricamento Operatori", description: `Impossibile caricare gli operatori: ${response.errors[0].message}`, variant: "destructive" });
       } else {
+         console.warn("No data or errors in operator fetch response.");
          toast({ title: "Errore Dati Operatori", description: "Nessun dato operatore ricevuto.", variant: "destructive" });
       }
     } catch (error) {
@@ -170,18 +174,19 @@ export default function OperatoriPage() {
     } finally {
       setLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast]);
   
   useEffect(() => {
     fetchOperators();
-  }, [toast]);
+  }, [fetchOperators]);
 
   const handlePasswordChangeAction = async (operator: User) => {
     const newPassword = window.prompt(`Inserisci la nuova password per ${operator.displayName || operator.email}:`);
     if (newPassword && operator.firebaseId) {
       try {
         const result = await changeFirebaseUserPassword(operator.firebaseId, newPassword);
-        if (result) { // Assuming result indicates success
+        if (result) { 
           toast({
             title: "Cambia Password",
             description: `La password per ${operator.displayName || operator.email} è stata cambiata.`,
@@ -215,8 +220,10 @@ export default function OperatoriPage() {
     const newStatus = currentStatusIsDisabled ? 'ACTIVE' : 'DISABLED';
     const optimisticOperatorDisplay = operatorToToggle.displayName || operatorToToggle.email;
 
+    console.log(`Attempting to toggle operator ${operatorId} (${optimisticOperatorDisplay}) from ${operatorToToggle.status} to ${newStatus}`);
+
     try {
-      console.log(`Attempting to update status for operator ${operatorId} to ${newStatus} in Hasura.`);
+      console.log(`Updating status for operator ${operatorId} to ${newStatus} in Hasura.`);
       const dbResponse = await apiClient(UPDATE_USER_STATUS_MUTATION, { id: operatorToToggle.id, status: newStatus });
       if (dbResponse.errors || !dbResponse.data?.update_users_by_pk) {
         console.error("Hasura status update failed:", dbResponse.errors || "No data returned from update_users_by_pk mutation.");
@@ -224,20 +231,22 @@ export default function OperatoriPage() {
       }
       console.log(`Hasura status update for operator ${operatorId} to ${newStatus} successful.`);
       
-      console.log(`Attempting to update Firebase status for operator ${operatorToToggle.firebaseId} to ${newStatus}.`);
       let firebaseUpdateResult;
       if (newStatus === 'DISABLED') {
-        console.log(`Calling disableFirebaseUser for ${operatorToToggle.firebaseId}.`);
+        console.log(`Calling disableFirebaseUser for Firebase ID: ${operatorToToggle.firebaseId}.`);
         firebaseUpdateResult = await disableFirebaseUser(operatorToToggle.firebaseId);
       } else {
-        console.log(`Calling enableFirebaseUser for ${operatorToToggle.firebaseId}.`);
+        console.log(`Calling enableFirebaseUser for Firebase ID: ${operatorToToggle.firebaseId}.`);
         firebaseUpdateResult = await enableFirebaseUser(operatorToToggle.firebaseId);
       }
 
-      if (!firebaseUpdateResult) { // Assuming result indicates success
-         throw new Error("L'operazione di aggiornamento Firebase è fallita.");
+      if (!firebaseUpdateResult) { 
+         console.warn(`Firebase status update for Firebase ID ${operatorToToggle.firebaseId} might have failed or returned a falsy value.`);
+         // Decide if this should be a hard error. For now, we proceed but log a warning.
+         // throw new Error("L'operazione di aggiornamento Firebase è fallita o non ha restituito un successo.");
+      } else {
+        console.log(`Firebase status update for Firebase ID ${operatorToToggle.firebaseId} successful.`);
       }
-      console.log(`Firebase status update for operator ${operatorToToggle.firebaseId} complete.`);
       
       setOperators(prevOperators =>
         prevOperators.map(op =>
@@ -256,7 +265,6 @@ export default function OperatoriPage() {
         description: `Impossibile cambiare lo stato di ${optimisticOperatorDisplay}: ${errorMessage}`,
         variant: "destructive",
       });
-       // Revert optimistic UI update or refetch if necessary, or rely on next fetch
     }
   };
 
@@ -273,20 +281,24 @@ export default function OperatoriPage() {
     const operatorNameToDelete = operatorToDelete.displayName || operatorToDelete.email || "Operatore Selezionato";
 
     try {
-      // 1. Delete from Hasura DB
+      console.log(`Attempting to delete operator ${operatorToDelete.id} from Hasura.`);
       const dbResponse = await apiClient(REMOVE_USER_MUTATION, { id: operatorToDelete.id });
       if (dbResponse.errors || !dbResponse.data?.delete_users_by_pk) {
+        console.error("Hasura delete failed:", dbResponse.errors || "No data returned from delete_users_by_pk mutation.");
         throw new Error(dbResponse.errors ? dbResponse.errors[0].message : "Failed to delete operator from database.");
       }
+      console.log(`Operator ${operatorToDelete.id} deleted from Hasura successfully.`);
 
-      // 2. Delete from Firebase Auth via backend function
       if (operatorToDelete.firebaseId) {
+        console.log(`Attempting to delete Firebase user ${operatorToDelete.firebaseId}.`);
         const firebaseDeleteResult = await deleteFirebaseUser(operatorToDelete.firebaseId);
-        if (!firebaseDeleteResult) { // Assuming result indicates success
+        if (!firebaseDeleteResult) { 
           console.warn(`Firebase user ${operatorToDelete.firebaseId} might not have been deleted if backend call failed or returned falsy.`);
-          // Decide if this should be a hard error or a soft warning
-          // For now, we proceed but log a warning.
+        } else {
+          console.log(`Firebase user ${operatorToDelete.firebaseId} deleted successfully.`);
         }
+      } else {
+        console.warn(`Operator ${operatorToDelete.id} does not have a Firebase ID. Skipping Firebase deletion.`);
       }
 
       setOperators(prevOperators => prevOperators.filter(op => op.id !== operatorToDelete.id));
@@ -311,11 +323,11 @@ export default function OperatoriPage() {
 
   const handleOperatorCreated = () => {
     setIsCreateOperatorDialogOpen(false);
-    fetchOperators(); // Refetch operators to include the new one
+    fetchOperators(); 
   };
 
 
-  if (loading && !isCreateOperatorDialogOpen) { // Don't show main loading if dialog is open
+  if (loading && !isCreateOperatorDialogOpen) { 
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -448,3 +460,4 @@ export default function OperatoriPage() {
     </>
   );
 }
+

@@ -24,7 +24,7 @@ const newOperatorSchema = z.object({
   firstName: z.string().min(2, { message: "Il nome deve contenere almeno 2 caratteri." }),
   lastName: z.string().min(2, { message: "Il cognome deve contenere almeno 2 caratteri." }),
   email: z.string().email({ message: "Inserisci un indirizzo email valido." }),
-  // Il campo password è stato rimosso dallo schema
+  // Il campo password è stato rimosso dallo schema e dal form, verrà generata casualmente
 });
 
 type NewOperatorFormData = z.infer<typeof newOperatorSchema>;
@@ -48,27 +48,26 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
 
   async function onSubmit(data: NewOperatorFormData) {
     setIsSubmitting(true);
+    const randomPassword = crypto.randomUUID(); // Genera password casuale
+
+    const newUserPayload: Partial<AppUser> & { password?: string } = {
+      first_name: data.firstName,
+      last_name: data.lastName,
+      email: data.email,
+      role: 'operator',
+      password: randomPassword, // Includi la password generata
+    };
 
     try {
-      const randomPassword = crypto.randomUUID(); // Genera una password casuale
-
-      const newUserPayload: Partial<AppUser> & { password?: string } = {
-        first_name: data.firstName,
-        last_name: data.lastName,
-        email: data.email,
-        role: 'operator',
-        password: randomPassword, // Invia la password generata al backend
-      };
-
       const backendRegisterUrl = (process.env.NEXT_PUBLIC_FIREBASE_BASE_URL || 'https://europe-west3-tremti-n.cloudfunctions.net') + '/registerUser';
-      console.log("Attempting to register operator via backend endpoint:", backendRegisterUrl, "with payload (password omitted from log):", { ...newUserPayload, password: '***' });
+      console.log("Attempting to register operator via backend endpoint:", backendRegisterUrl, "with payload (password omitted from log):", { ...newUserPayload, password: '[REDACTED]' });
 
       const backendResponse = await fetch(backendRegisterUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ object: newUserPayload }),
+        body: JSON.stringify({ object: newUserPayload }), // Assicurati che il backend si aspetti questo formato
       });
 
       if (!backendResponse.ok) {
@@ -89,6 +88,7 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
       console.log("Backend registration successful:", backendResult);
       toast({ title: "Operatore Registrato", description: `L'operatore ${data.firstName} ${data.lastName} è stato creato.` });
 
+      // Invia email di reset password
       console.log("Attempting to send password reset email to:", data.email);
       await sendPasswordReset(data.email);
       toast({
@@ -97,7 +97,7 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
       });
       console.log("Password reset email sent successfully.");
 
-      form.reset();
+      form.reset(); // Resetta il form dopo il successo
       if (typeof onOperatorCreated === 'function') {
         onOperatorCreated();
       } else {
@@ -127,7 +127,7 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
             <FormItem>
               <FormLabel>Nome</FormLabel>
               <FormControl>
-                <Input placeholder="Mario" {...field} />
+                <Input placeholder="Mario" {...field} disabled={isSubmitting} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -140,7 +140,7 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
             <FormItem>
               <FormLabel>Cognome</FormLabel>
               <FormControl>
-                <Input placeholder="Rossi" {...field} />
+                <Input placeholder="Rossi" {...field} disabled={isSubmitting} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -153,17 +153,17 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input type="email" placeholder="m.rossi@example.com" {...field} />
+                <Input type="email" placeholder="m.rossi@example.com" {...field} disabled={isSubmitting} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        {/* Il campo password è stato rimosso dal form */}
+        {/* Il campo password è stato rimosso dal form, viene generata casualmente */}
         <div className="flex justify-end gap-2 pt-4">
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Crea Operatore
+            {isSubmitting ? 'Creazione in corso...' : 'Crea Operatore'}
           </Button>
         </div>
       </form>
