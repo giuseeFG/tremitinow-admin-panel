@@ -25,10 +25,8 @@ export async function apiClient<T = any>(
   variables?: Record<string, any>
 ): Promise<GraphQLResponse<T>> {
   if (!HASURA_ENDPOINT || HASURA_ENDPOINT === 'YOUR_HASURA_ENDPOINT_HERE') {
-    console.warn('Hasura endpoint is not configured. Returning mock success for queries.');
-    // Return a mock success structure to prevent breaking pages during development without an endpoint
-    // You might want to throw an error or return mock data based on the query type
-    return { data: {} as T }; 
+    console.error('Hasura endpoint is not configured. Cannot make API calls.');
+    return { errors: [{ message: 'Hasura endpoint not configured.' }] };
   }
 
   const headers: HeadersInit = {
@@ -78,3 +76,4 @@ export async function apiClient<T = any>(
 //   // Replace with your actual token retrieval logic, e.g., from AuthContext or localStorage
 //   return localStorage.getItem('authToken'); 
 // }
+

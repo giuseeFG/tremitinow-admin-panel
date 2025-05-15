@@ -21,6 +21,32 @@ export const GET_USERS_BY_ROLE_QUERY = `
 `;
 
 /**
+ * Fetches a user by their Firebase ID.
+ */
+export const GET_USER_BY_FIREBASE_ID = `
+  query GetUserByFirebaseId($firebaseId: String!) {
+    users(where: {firebaseId: {_eq: $firebaseId}}) {
+      id
+      firebaseId
+      first_name
+      last_name
+      email
+      avatar
+      role
+      status
+      auth_complete
+      born
+      cover
+      notifications_enabled
+      phone
+      sex
+      step
+      created_at
+    }
+  }
+`;
+
+/**
  * Fetches posts, including author and group details.
  * Limits to 20 posts, ordered by creation date.
  */
@@ -107,3 +133,4 @@ export const GET_REQUESTS_QUERY = `
     }
   }
 `;
+
