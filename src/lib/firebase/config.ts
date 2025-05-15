@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
-// import { getFirestore, Firestore } from "firebase/firestore"; // Firestore non è configurato in questo step
+import { getStorage, FirebaseStorage } from "firebase/storage"; // Import getStorage
 
 // Configurazione Firebase fornita dall'utente
 const firebaseConfig = {
@@ -17,7 +17,7 @@ const firebaseConfig = {
 
 let app: FirebaseApp;
 let auth: Auth;
-// let db: Firestore; // Firestore non è configurato in questo step
+let storage: FirebaseStorage; // Declare storage
 
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
@@ -26,6 +26,6 @@ if (!getApps().length) {
 }
 
 auth = getAuth(app);
-// db = getFirestore(app); // Firestore non è configurato in questo step
+storage = getStorage(app); // Initialize storage
 
-export { app, auth /*, db */ };
+export { app, auth, storage }; // Export storage
