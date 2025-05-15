@@ -88,7 +88,7 @@ export default function UtentiPage() {
           }));
           setUsers(fetchedUsers);
         } else if (response.errors) {
-          console.error("GraphQL errors:", response.errors);
+          console.error("GraphQL errors fetching users:", response.errors);
           toast({ title: "Errore Caricamento Utenti", description: `Impossibile caricare gli utenti: ${response.errors[0].message}`, variant: "destructive" });
         } else {
           toast({ title: "Errore Dati Utenti", description: "Nessun dato utente ricevuto.", variant: "destructive" });
@@ -139,18 +139,26 @@ export default function UtentiPage() {
     const optimisticUserDisplay = userToToggle.displayName || userToToggle.email;
 
     try {
+      console.log(`Attempting to update status for user ${userId} to ${newStatus} in Hasura.`);
       // 1. Update status in Hasura
       const dbResponse = await apiClient(UPDATE_USER_STATUS_MUTATION, { id: userToToggle.id, status: newStatus });
+      
       if (dbResponse.errors || !dbResponse.data?.update_users_by_pk) {
+        console.error("Hasura status update failed:", dbResponse.errors || "No data returned from update_users_by_pk mutation.");
         throw new Error(dbResponse.errors ? dbResponse.errors[0].message : "Failed to update user status in database.");
       }
+      console.log(`Hasura status update for user ${userId} to ${newStatus} successful.`);
 
       // 2. Conceptually update Firebase Auth status (requires backend)
+      console.log(`Attempting to update Firebase status for user ${userToToggle.firebaseId} to ${newStatus}.`);
       if (newStatus === 'disabled') {
         await disableFirebaseUser(userToToggle.firebaseId);
+        console.log(`disableFirebaseUser called for ${userToToggle.firebaseId}.`);
       } else {
         await enableFirebaseUser(userToToggle.firebaseId);
+        console.log(`enableFirebaseUser called for ${userToToggle.firebaseId}.`);
       }
+      console.log(`Firebase status update for user ${userToToggle.firebaseId} (simulated) complete.`);
 
       // 3. Update local state
       setUsers(prevUsers =>
@@ -249,7 +257,7 @@ export default function UtentiPage() {
             <TableBody>
               {users.map((user) => {
                 const avatarSrc = parseImg(user.avatar) || `https://placehold.co/40x40.png?text=${(user.first_name || 'U')[0]}${(user.last_name || 'N')[0]}`;
-                const isDisabled = user.status === 'disabled'; // Derive from status string
+                const isDisabled = user.status === 'disabled';
                 return (
                   <TableRow key={user.id}>
                     <TableCell>
@@ -332,5 +340,4 @@ export default function UtentiPage() {
     </>
   );
 }
-
     

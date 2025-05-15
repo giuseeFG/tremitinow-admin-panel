@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import type { User } from '@/types';
@@ -89,7 +88,7 @@ export default function OperatoriPage() {
           }));
           setOperators(fetchedOperators);
         } else if (response.errors) {
-          console.error("GraphQL errors:", response.errors);
+          console.error("GraphQL errors fetching operators:", response.errors);
           toast({ title: "Errore Caricamento Operatori", description: `Impossibile caricare gli operatori: ${response.errors[0].message}`, variant: "destructive" });
         } else {
            toast({ title: "Errore Dati Operatori", description: "Nessun dato operatore ricevuto.", variant: "destructive" });
@@ -140,18 +139,25 @@ export default function OperatoriPage() {
     const optimisticOperatorDisplay = operatorToToggle.displayName || operatorToToggle.email;
 
     try {
+      console.log(`Attempting to update status for operator ${operatorId} to ${newStatus} in Hasura.`);
       // 1. Update status in Hasura
       const dbResponse = await apiClient(UPDATE_USER_STATUS_MUTATION, { id: operatorToToggle.id, status: newStatus });
       if (dbResponse.errors || !dbResponse.data?.update_users_by_pk) {
+        console.error("Hasura status update failed:", dbResponse.errors || "No data returned from update_users_by_pk mutation.");
         throw new Error(dbResponse.errors ? dbResponse.errors[0].message : "Failed to update operator status in database.");
       }
-
+      console.log(`Hasura status update for operator ${operatorId} to ${newStatus} successful.`);
+      
       // 2. Conceptually update Firebase Auth status (requires backend)
+      console.log(`Attempting to update Firebase status for operator ${operatorToToggle.firebaseId} to ${newStatus}.`);
       if (newStatus === 'disabled') {
         await disableFirebaseUser(operatorToToggle.firebaseId);
+        console.log(`disableFirebaseUser called for ${operatorToToggle.firebaseId}.`);
       } else {
         await enableFirebaseUser(operatorToToggle.firebaseId);
+        console.log(`enableFirebaseUser called for ${operatorToToggle.firebaseId}.`);
       }
+      console.log(`Firebase status update for operator ${operatorToToggle.firebaseId} (simulated) complete.`);
       
       // 3. Update local state
       setOperators(prevOperators =>
@@ -258,7 +264,7 @@ export default function OperatoriPage() {
             <TableBody>
               {operators.map((operator) => {
                 const avatarSrc = parseImg(operator.avatar) || `https://placehold.co/40x40.png?text=${(operator.first_name || 'O')[0]}${(operator.last_name || 'P')[0]}`;
-                const isDisabled = operator.status === 'disabled'; // Derive from status string
+                const isDisabled = operator.status === 'disabled'; 
                 return (
                   <TableRow key={operator.id}>
                     <TableCell>
