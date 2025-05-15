@@ -90,7 +90,7 @@ export const GET_PAGES_QUERY = `
       web
       avatar
       cover
-      # Add any other fields from 'groups' you want as metadata
+      # Add any other fields from 'groups' table you want as metadata
     }
   }
 `;
@@ -111,7 +111,7 @@ export const GET_PAGE_BY_ID_QUERY = `
       web
       avatar
       cover
-      # Add any other fields from 'groups' you want as metadata
+      # Add any other fields from 'groups' table you want as metadata
     }
   }
 `;
@@ -134,3 +134,13 @@ export const GET_REQUESTS_QUERY = `
   }
 `;
 
+/**
+ * Mutation to remove a user by their primary key (DB ID).
+ */
+export const REMOVE_USER_MUTATION = `
+  mutation removeUser($id: Int!) {
+    delete_users_by_pk(id: $id) {
+      id
+    }
+  }
+`;
