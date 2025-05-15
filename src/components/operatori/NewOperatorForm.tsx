@@ -17,8 +17,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import React from "react";
-import { registerFirebaseUser, sendPasswordReset } from "@/lib/firebase/auth"; // Import registerFirebaseUser
-import type { User as AppUser } from "@/types";
+import { sendPasswordReset } from "@/lib/firebase/auth"; 
+// Rimuoviamo l'import di registerFirebaseUser perché la creazione utente Firebase è gestita dal backend
 
 const newOperatorSchema = z.object({
   firstName: z.string().min(2, { message: "Il nome deve contenere almeno 2 caratteri." }),
@@ -49,52 +49,44 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
 
   async function onSubmit(data: NewOperatorFormData) {
     setIsSubmitting(true);
-    let firebaseUserUid = '';
 
     try {
-      console.log("Attempting to create user in Firebase Auth with email:", data.email);
-      const firebaseUser = await registerFirebaseUser(data.email, data.password);
-      if (!firebaseUser) { // registerFirebaseUser now directly returns FirebaseUser or throws
-        throw new Error("Firebase user creation failed or user data not returned.");
-      }
-      firebaseUserUid = firebaseUser.uid;
-      toast({ title: "Utente Firebase Creato", description: `UID: ${firebaseUserUid}` });
-      console.log("Firebase user created successfully, UID:", firebaseUserUid);
-
-      const newUserPayload: Partial<AppUser> & { email: string; role: string } = {
+      const newUserPayload = {
         first_name: data.firstName,
         last_name: data.lastName,
         email: data.email,
+        password: data.password, // La password viene inviata al backend
         role: 'operator', 
-        firebaseId: firebaseUserUid,
-        status: 'ACTIVE', // Default status
+        // Il backend si occuperà di creare l'utente Firebase e ottenere/salvare il firebaseId
       };
+
       console.log("Payload for backend /registerUser:", newUserPayload);
 
       const backendRegisterUrl = process.env.NEXT_PUBLIC_FIREBASE_BASE_URL + '/registerUser';
-      console.log("Attempting to register user in backend via:", backendRegisterUrl);
+      console.log("Attempting to register operator via backend endpoint:", backendRegisterUrl);
+      
       const backendResponse = await fetch(backendRegisterUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // Qui potresti voler aggiungere un token di autorizzazione se il tuo endpoint /registerUser lo richiede
+          // Ad esempio, se solo un admin può creare altri operatori.
         },
-        body: JSON.stringify({ object: newUserPayload }), 
+        body: JSON.stringify({ object: newUserPayload }), // Assumendo che il backend si aspetti un oggetto 'object'
       });
 
       if (!backendResponse.ok) {
-        const errorData = await backendResponse.text();
+        const errorData = await backendResponse.json().catch(() => backendResponse.text()); // Prova a parsare JSON, altrimenti testo
         console.error("Backend registration error:", backendResponse.status, errorData);
-        // Attempt to delete Firebase user if backend registration fails
-        // This part is tricky and might need a backend mechanism for robustness
-        // For now, we'll log and notify, but actual Firebase user deletion on failure here can be complex
-        // await deleteFirebaseUser(firebaseUserUid); // Placeholder for a potential cleanup
-        throw new Error(`Backend registration failed: ${backendResponse.status} ${errorData}. Firebase user ${firebaseUserUid} was created but backend sync failed.`);
+        throw new Error(typeof errorData === 'object' && errorData.message ? errorData.message : `Registrazione operatore fallita: ${errorData}`);
       }
       
       const backendResult = await backendResponse.json(); 
       console.log("Backend registration successful:", backendResult);
-      toast({ title: "Operatore Registrato nel DB", description: `L'operatore ${data.firstName} ${data.lastName} è stato registrato.` });
+      toast({ title: "Operatore Registrato", description: `L'operatore ${data.firstName} ${data.lastName} è stato creato.` });
       
+      // Invio email di reset password (presumendo che il backend non lo faccia)
+      // Se il backend restituisce il firebaseId, potresti volerlo usare o confermare l'email.
       console.log("Attempting to send password reset email to:", data.email);
       await sendPasswordReset(data.email);
       toast({
@@ -108,15 +100,9 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
 
     } catch (error: any) {
       console.error("Error creating operator:", error);
-      let errorMessage = "Errore durante la creazione dell'operatore.";
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'Questo indirizzo email è già in uso.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
       toast({
         title: "Errore Creazione Operatore",
-        description: errorMessage,
+        description: error.message || "Si è verificato un errore imprevisto.",
         variant: "destructive",
       });
     } finally {
@@ -180,9 +166,10 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
           )}
         />
         <div className="flex justify-end gap-2 pt-4">
-          <Button type="button" variant="outline" onClick={() => { form.reset(); onOperatorCreated();}} disabled={isSubmitting}>
+          {/* Potresti voler aggiungere un pulsante Annulla che chiama onOperatorCreated senza fare nulla, o che resetta il form */}
+          {/* <Button type="button" variant="outline" onClick={() => { form.reset(); onOperatorCreated();}} disabled={isSubmitting}>
             Annulla
-          </Button>
+          </Button> */}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Crea Operatore
