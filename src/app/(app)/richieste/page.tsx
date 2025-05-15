@@ -83,8 +83,6 @@ export default function RichiestePage() {
               <TableHead>Email</TableHead>
               <TableHead>Nome pagina</TableHead>
               <TableHead>Note</TableHead>
-              {/* <TableHead>Categoria</TableHead> // Rimossa come da richiesta implicita non essendo nelle nuove colonne */}
-              <TableHead className="text-right">Azioni</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -96,12 +94,6 @@ export default function RichiestePage() {
                 <TableCell className="font-medium">{request.email}</TableCell>
                 <TableCell>{request.page_name || '-'}</TableCell>
                 <TableCell className="text-muted-foreground max-w-xs truncate">{request.notes || '-'}</TableCell>
-                {/* <TableCell className="text-muted-foreground">{request.category?.category || '-'}</TableCell> // Rimossa */}
-                <TableCell className="text-right">
-                  <Button variant="outline" size="sm" onClick={() => alert(`Dettagli richiesta ID: ${request.id} (Demo)`)}>
-                    <Eye className="mr-2 h-4 w-4" /> Vedi (Demo)
-                  </Button>
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>
