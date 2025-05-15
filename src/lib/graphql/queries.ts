@@ -87,7 +87,6 @@ export const GET_PAGES_QUERY = `
         id
         category
       }
-      # created_at and description (content) are fetched by GET_PAGE_BY_ID_QUERY for detail view
     }
   }
 `;
@@ -102,16 +101,24 @@ export const GET_PAGE_BY_ID_QUERY = `
       id
       title
       description # This is the main content for the page
-      created_at
-      address
-      phone
+      active
+      can_send_notification
+      can_publish_on_fb
+      additional_btn_text
+      additional_url
+      btn_info_text
+      facebook
+      instagram
       email
-      web
+      phone
       avatar
       cover
-      category: groups_category_group_category_id {
-         id
-         category
+      created_at
+      group_categories_2 {
+        category_fk: groups_category_group_category_id {
+          id
+          category
+        }
       }
       # Add any other fields from 'groups' table you want as metadata
     }
@@ -130,7 +137,7 @@ export const GET_REQUESTS_QUERY = `
       notes
       page_name 
       created_at
-      category: category_detail { # Alias category_detail to category
+      category: category_detail {
         category
       }
     }
@@ -189,6 +196,43 @@ export const GET_DASHBOARD_STATS_QUERY = `
       aggregate {
         count
       }
+    }
+  }
+`;
+
+// Mutation to update a group (page)
+export const UPDATE_PAGE_MUTATION = `
+  mutation updateGroup($id: Int!, $data: groups_set_input!) {
+    update_groups_by_pk(pk_columns: {id: $id}, _set: $data) {
+      id
+    }
+  }
+`;
+
+// Mutation to delete all categories for a group from group_categories_2
+export const DELETE_GROUP_CATEGORY_MUTATION = `
+  mutation deleteGroupCategory2($group: Int!) {
+    delete_group_categories_2(where: {group: {_eq: $group}}) {
+      affected_rows
+    }
+  }
+`;
+
+// Mutation to insert a category for a group into group_categories_2
+export const INSERT_GROUP_CATEGORY_MUTATION = `
+  mutation insertGroupCategory2($data: group_categories_2_insert_input!) {
+    insert_group_categories_2_one(object: $data) {
+      id
+    }
+  }
+`;
+
+// Query to get all group categories
+export const GET_CATEGORIES_QUERY = `
+  query getCategories {
+    group_categories(order_by: {category: asc}) {
+      id
+      category
     }
   }
 `;

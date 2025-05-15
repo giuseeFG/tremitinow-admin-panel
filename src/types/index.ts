@@ -1,4 +1,5 @@
 
+
 export interface User {
   id: number; // Database primary key (e.g., from users.id)
   firebaseId: string; // Firebase UID
@@ -9,7 +10,7 @@ export interface User {
   avatar?: string | null; // from users.avatar
   role?: 'user' | 'operator' | string; // From users.role
   status?: 'ACTIVE' | 'DISABLED' | string; // From users.status
-  disabled?: boolean; // Derived from status, e.g., status === 'disabled'
+  disabled?: boolean; // Derived from status, e.g., status === 'DISABLED'
   created_at?: string; // ISO date string from users.created_at
 
   // Fields from your GET_USER_BY_FIREBASE_ID query
@@ -49,20 +50,38 @@ export interface Post {
 export interface Page { // Mapped from 'groups' table in Hasura
   id: number; // groups.id
   title: string; // groups.title
-  content?: string | null; // groups.description - Optional for list view
-  created_at?: string; // groups.created_at, ISO date string - Optional for list view
-  category?: { // From groups_category_group_category_id
+  description?: string | null; // groups.description
+  created_at?: string; // groups.created_at, ISO date string
+  
+  active?: boolean;
+  can_send_notification?: boolean;
+  can_publish_on_fb?: boolean;
+  additional_btn_text?: string | null;
+  additional_url?: string | null;
+  btn_info_text?: string | null;
+  facebook?: string | null;
+  instagram?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  avatar?: string | null;
+  cover?: string | null;
+  
+  group_categories_2?: Array<{
+    category?: { 
+      id: number;
+      category?: string; // Name of the category
+    } | null;
+  }>;
+
+  // For list view, category might be simpler
+  category?: { 
     id: number;
     category: string;
   } | null;
+
   metadata?: {
     address?: string | null;
-    phone?: string | null;
-    email?: string | null;
-    web?: string | null;
-    avatar?: string | null;
-    cover?: string | null;
-    // Add other fields from 'groups' table as needed
+    // phone, email, web, avatar, cover are now direct properties
     [key: string]: any;
   };
 }
@@ -76,4 +95,9 @@ export interface AppRequest { // Renamed from Request to AppRequest
   category?: { // Updated from category_detail due to GraphQL alias
     category?: string | null;
   } | null;
+}
+
+export interface GroupCategory {
+  id: number;
+  category: string;
 }
