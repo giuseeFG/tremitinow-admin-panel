@@ -11,6 +11,7 @@ import {
 import type { User as AppUser } from '@/types'; // Il nostro tipo User applicativo
 import { apiClient } from '@/lib/graphql/client'; 
 import { GET_USER_BY_FIREBASE_ID } from '@/lib/graphql/queries';
+import { parseImg } from '@/lib/utils'; // Import parseImg
 
 // Funzione per recuperare i dettagli dell'utente da Hasura
 async function getUserByFirebaseId(firebaseId: string): Promise<Partial<AppUser> | null> {
@@ -31,12 +32,12 @@ async function getUserByFirebaseId(firebaseId: string): Promise<Partial<AppUser>
         id: parseInt(dbUser.id, 10), // DB ID
         first_name: dbUser.first_name,
         last_name: dbUser.last_name,
-        avatar: dbUser.avatar,
+        avatar: dbUser.avatar, // raw avatar, parseImg will be used in component
         role: dbUser.role,
         status: dbUser.status,
         auth_complete: dbUser.auth_complete,
         born: dbUser.born,
-        cover: dbUser.cover,
+        cover: dbUser.cover, // raw cover
         notifications_enabled: dbUser.notifications_enabled,
         phone: dbUser.phone,
         sex: dbUser.sex,
@@ -73,6 +74,7 @@ export const onAuthStatusChanged = (
         firebaseId: fbUser.uid,
         email: fbUser.email,
         displayName: fbUser.displayName, 
+        avatar: fbUser.photoURL, // Firebase avatar
         id: 0, // Placeholder DB ID, sarà sovrascritto
       };
 
@@ -84,6 +86,8 @@ export const onAuthStatusChanged = (
             ...extendedProfile, // Sovrascrive con i dati da Hasura
             // Assicurati che id sia un numero se extendedProfile.id è stringa
             id: typeof extendedProfile.id === 'string' ? parseInt(extendedProfile.id, 10) : extendedProfile.id || appUser.id,
+            // Sovrascrivi avatar se presente nel profilo esteso, altrimenti usa quello di Firebase
+            avatar: extendedProfile.avatar || appUser.avatar,
             disabled: extendedProfile.status === 'disabled',
             displayName: `${extendedProfile.first_name || ''} ${extendedProfile.last_name || ''}`.trim() || appUser.displayName,
           };

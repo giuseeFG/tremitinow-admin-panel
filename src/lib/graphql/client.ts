@@ -4,7 +4,7 @@
 // This is a placeholder for your GraphQL client configuration.
 // You would typically use a library like Apollo Client, urql, or a simple fetch wrapper.
 
-const HASURA_ENDPOINT = 'https://api.tremitinow.next2me.cloud/v1/graphql';
+const HASURA_ENDPOINT = process.env.NEXT_PUBLIC_GRAPHQL_BASE_URL || 'https://api.tremitinow.next2me.cloud/v1/graphql'; // Fallback for safety, but env var should be primary
 const HASURA_ADMIN_SECRET = process.env.HASURA_GRAPHQL_ADMIN_SECRET; // Or appropriate auth headers
 
 interface GraphQLResponse<T = any> {
@@ -24,10 +24,9 @@ export async function apiClient<T = any>(
   query: string,
   variables?: Record<string, any>
 ): Promise<GraphQLResponse<T>> {
-  if (!HASURA_ENDPOINT || HASURA_ENDPOINT === 'YOUR_HASURA_ENDPOINT_HERE') {
-    console.error('Hasura endpoint is not configured. Cannot make API calls.');
-    // This path should ideally not be reached if HASURA_ENDPOINT is hardcoded above.
-    return { errors: [{ message: 'Hasura endpoint not configured.' }] };
+  if (!HASURA_ENDPOINT || HASURA_ENDPOINT.includes('YOUR_HASURA_ENDPOINT_HERE')) { // Check for placeholder
+    console.error('Hasura endpoint is not configured correctly. Current endpoint:', HASURA_ENDPOINT);
+    return { errors: [{ message: 'Hasura endpoint not configured or using placeholder.' }] };
   }
 
   const headers: HeadersInit = {
@@ -36,7 +35,9 @@ export async function apiClient<T = any>(
 
   // Add admin secret or other auth headers if necessary
   // For client-side Hasura, you'd typically use JWT tokens passed via Authorization header
-  if (HASURA_ADMIN_SECRET) {
+  // WARNING: Using admin secret on client-side is a security risk. 
+  // This should only be done in server-side environments or secure contexts.
+  if (HASURA_ADMIN_SECRET && typeof window === 'undefined') { // Example: only add if server-side
     headers['x-hasura-admin-secret'] = HASURA_ADMIN_SECRET;
   }
   // Example for JWT token (you'd get this from your auth state)
@@ -68,7 +69,12 @@ export async function apiClient<T = any>(
 
   } catch (error) {
     console.error('GraphQL Request Failed:', error);
-    return { errors: [{ message: error instanceof Error ? error.message : 'Unknown error occurred' }] };
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    // Check for "Failed to construct 'URL': Invalid URL" specifically if error is TypeError
+    if (error instanceof TypeError && error.message.includes("Failed to construct 'URL'")) {
+      console.error("Potential cause: HASURA_ENDPOINT might be invalid or undefined. Current value:", HASURA_ENDPOINT);
+    }
+    return { errors: [{ message: errorMessage }] };
   }
 }
 

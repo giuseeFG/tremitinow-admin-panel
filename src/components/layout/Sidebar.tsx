@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -17,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { LayoutDashboard, Users, Briefcase, FileText, BookOpen, ClipboardList, Settings, LogOut, UserCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import Image from 'next/image';
+import { parseImg } from '@/lib/utils'; // Import parseImg
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -31,11 +33,20 @@ export function Sidebar() {
   const pathname = usePathname();
   const { user, logout, loading } = useAuth();
 
+  // Use a placeholder or a default logo if parseImg returns null
+  const logoSrc = parseImg("https://placehold.co/40x40/29ABE2/FFFFFF.png?text=TT") || "https://placehold.co/40x40/29ABE2/FFFFFF.png?text=TT";
+
   return (
     <UISidebar collapsible="icon">
       <SidebarHeader className="p-4 flex items-center justify-between">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <Image src="https://placehold.co/40x40/29ABE2/FFFFFF.png?text=TT" alt="Tremiti Today Logo" width={32} height={32} className="rounded-md" data-ai-hint="logo initial" />
+            <Image 
+              src={logoSrc} 
+              alt="Tremiti Today Logo" 
+              width={32} height={32} 
+              className="rounded-md" 
+              data-ai-hint="logo initial"
+            />
             <span className="font-semibold text-lg text-primary group-data-[collapsible=icon]:hidden">Tremiti Today</span>
           </Link>
           <div className="group-data-[collapsible=icon]:hidden">
