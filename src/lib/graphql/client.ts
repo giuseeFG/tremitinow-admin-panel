@@ -1,6 +1,8 @@
 
 // src/lib/graphql/client.ts
 
+import { auth } from '@/lib/firebase/config'; // Import Firebase auth instance
+
 // This is a placeholder for your GraphQL client configuration.
 // You would typically use a library like Apollo Client, urql, or a simple fetch wrapper.
 
@@ -13,8 +15,8 @@ interface GraphQLResponse<T = any> {
 }
 
 /**
- * Placeholder function for making GraphQL requests.
- * Replace this with your actual GraphQL client implementation.
+ * Client for making GraphQL requests to Hasura.
+ * Includes Firebase ID token for authenticated users.
  * 
  * @param query The GraphQL query string.
  * @param variables Optional variables for the query.
@@ -24,7 +26,7 @@ export async function apiClient<T = any>(
   query: string,
   variables?: Record<string, any>
 ): Promise<GraphQLResponse<T>> {
-  if (!HASURA_ENDPOINT || HASURA_ENDPOINT.includes('YOUR_HASURA_ENDPOINT_HERE') || HASURA_ENDPOINT === 'https://api.tremitinow.next2me.cloud/v1/graphqlundefined') { // Check for placeholder or common misconfiguration
+  if (!HASURA_ENDPOINT || HASURA_ENDPOINT.includes('YOUR_HASURA_ENDPOINT_HERE') || HASURA_ENDPOINT === 'https://api.tremitinow.next2me.cloud/v1/graphqlundefined') { 
     const errorMsg = 'Hasura endpoint is not configured correctly or is using a placeholder/default. Current endpoint: ' + HASURA_ENDPOINT;
     console.error(errorMsg);
     return { errors: [{ message: errorMsg }] };
@@ -34,17 +36,22 @@ export async function apiClient<T = any>(
     'Content-Type': 'application/json',
   };
 
-  // WARNING: Using admin secret on client-side is generally a security risk.
-  // This should only be done in server-side environments or if you understand the implications.
-  // For client-side Hasura, you'd typically use JWT tokens passed via Authorization header.
-  if (HASURA_ADMIN_SECRET && typeof window === 'undefined') { // Only add if server-side and secret is present
+  // Get Firebase ID token for the current user
+  const currentUser = auth.currentUser;
+  if (currentUser) {
+    try {
+      const token = await currentUser.getIdToken();
+      headers['Authorization'] = `Bearer ${token}`;
+    } catch (error) {
+      console.error("Error getting Firebase ID token:", error);
+      // Optionally, you might want to prevent the request or handle this error differently
+    }
+  } else if (HASURA_ADMIN_SECRET && typeof window === 'undefined') { 
+    // Fallback to admin secret if no user is logged in AND if server-side + secret is present
+    // WARNING: Using admin secret on client-side is generally a security risk.
+    // This condition ensures it's only added if no user token is available and it's a server-side context.
     headers['x-hasura-admin-secret'] = HASURA_ADMIN_SECRET;
   }
-  // Example for JWT token (you'd get this from your auth state if implementing JWT based auth)
-  // const token = getAuthToken(); 
-  // if (token) {
-  //   headers['Authorization'] = `Bearer ${token}`;
-  // }
 
 
   try {
