@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,25 +14,27 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from 'next/navigation';
 import { Loader2 } from "lucide-react";
 import React from "react";
+import { createUserInFirebaseAuth, sendPasswordReset } from "@/lib/firebase/auth"; // Import createUserInFirebaseAuth
+import type { User as AppUser } from "@/types";
 
 const newOperatorSchema = z.object({
   firstName: z.string().min(2, { message: "Il nome deve contenere almeno 2 caratteri." }),
   lastName: z.string().min(2, { message: "Il cognome deve contenere almeno 2 caratteri." }),
   email: z.string().email({ message: "Inserisci un indirizzo email valido." }),
-  // In a real app, you'd handle password creation more securely, possibly via an invite or a separate step
-  // For this demo, we'll omit password from the form.
+  password: z.string().min(6, { message: "La password deve contenere almeno 6 caratteri." }),
 });
 
 type NewOperatorFormData = z.infer<typeof newOperatorSchema>;
 
-export function NewOperatorForm() {
+interface NewOperatorFormProps {
+  onOperatorCreated: () => void; // Callback to close dialog and potentially refresh list
+}
+
+export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
   const { toast } = useToast();
-  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const form = useForm<NewOperatorFormData>({
@@ -40,90 +43,154 @@ export function NewOperatorForm() {
       firstName: "",
       lastName: "",
       email: "",
+      password: "",
     },
   });
 
   async function onSubmit(data: NewOperatorFormData) {
     setIsSubmitting(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    let firebaseUserUid = '';
 
-    console.log("Nuovo operatore dati (demo):", data);
-    // In a real app, you would:
-    // 1. Call an API endpoint or Firebase function to create the user.
-    // 2. Handle password creation (e.g., auto-generate and send email, or require admin to set).
-    // 3. Potentially update the local state or re-fetch the operators list.
+    try {
+      // 1. Create user in Firebase Auth using the Client SDK
+      console.log("Attempting to create user in Firebase Auth with email:", data.email);
+      const firebaseUserCredential = await createUserInFirebaseAuth(data.email, data.password);
+      if (!firebaseUserCredential || !firebaseUserCredential.user) {
+        throw new Error("Firebase user creation failed or user data not returned.");
+      }
+      firebaseUserUid = firebaseUserCredential.user.uid;
+      toast({ title: "Utente Firebase Creato", description: `UID: ${firebaseUserUid}` });
+      console.log("Firebase user created successfully, UID:", firebaseUserUid);
 
-    toast({
-      title: "Operatore Creato (Demo)",
-      description: `L'operatore ${data.firstName} ${data.lastName} è stato aggiunto con successo. (Password non impostata)`,
-    });
-    setIsSubmitting(false);
-    form.reset(); // Reset form fields
-    // Optionally redirect after a delay or provide a button to go back
-    // router.push('/operatori'); 
+      // 2. Prepare user data for your backend (Hasura)
+      const newUserPayload: Partial<AppUser> & { email: string; role: string } = { // Ensure role is part of the payload
+        first_name: data.firstName,
+        last_name: data.lastName,
+        email: data.email,
+        role: 'operator', // Explicitly set role
+        firebaseId: firebaseUserUid,
+        // status: 'ACTIVE', // Default status if your backend expects it
+      };
+      console.log("Payload for backend /registerUser:", newUserPayload);
+
+      // 3. Register user in your database (e.g., Hasura via a Cloud Function or Action)
+      // This currently simulates a fetch call. Replace with your actual API call (e.g., using axios if preferred and configured)
+      const backendRegisterUrl = process.env.NEXT_PUBLIC_FIREBASE_BASE_URL + '/registerUser';
+      console.log("Attempting to register user in backend via:", backendRegisterUrl);
+      const backendResponse = await fetch(backendRegisterUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Add any necessary auth headers for this backend endpoint if required
+        },
+        body: JSON.stringify({ object: newUserPayload }), // Structure based on your example
+      });
+
+      if (!backendResponse.ok) {
+        const errorData = await backendResponse.text();
+        console.error("Backend registration error:", backendResponse.status, errorData);
+        throw new Error(`Backend registration failed: ${backendResponse.status} ${errorData}`);
+      }
+      
+      const backendResult = await backendResponse.json(); // Assuming your backend returns JSON
+      console.log("Backend registration successful:", backendResult);
+      toast({ title: "Operatore Registrato nel DB", description: `L'operatore ${data.firstName} ${data.lastName} è stato registrato.` });
+      
+      // 4. Send password reset email
+      console.log("Attempting to send password reset email to:", data.email);
+      await sendPasswordReset(data.email);
+      toast({
+        title: "Email di Reset Password Inviata",
+        description: `Un'email per impostare la password è stata inviata a ${data.email}.`,
+      });
+      console.log("Password reset email sent successfully.");
+
+      form.reset();
+      onOperatorCreated(); // Close dialog and trigger refresh
+
+    } catch (error: any) {
+      console.error("Error creating operator:", error);
+      let errorMessage = "Errore durante la creazione dell'operatore.";
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'Questo indirizzo email è già in uso.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      toast({
+        title: "Errore Creazione Operatore",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
-    <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle>Dettagli Nuovo Operatore</CardTitle>
-        <CardDescription>Compila i campi sottostanti per aggiungere un nuovo operatore.</CardDescription>
-      </CardHeader>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-6">
-            <FormField
-              control={form.control}
-              name="firstName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Mario" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="lastName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cognome</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Rossi" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input type="email" placeholder="m.rossi@example.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-          <CardFooter className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => router.push('/operatori')} disabled={isSubmitting}>
-              Annulla
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Salva Operatore
-            </Button>
-          </CardFooter>
-        </form>
-      </Form>
-    </Card>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <FormField
+          control={form.control}
+          name="firstName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nome</FormLabel>
+              <FormControl>
+                <Input placeholder="Mario" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="lastName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Cognome</FormLabel>
+              <FormControl>
+                <Input placeholder="Rossi" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input type="email" placeholder="m.rossi@example.com" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Password</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="********" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={onOperatorCreated} disabled={isSubmitting}>
+            Annulla
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Crea Operatore
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }

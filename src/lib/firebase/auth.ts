@@ -6,7 +6,9 @@ import {
   signInWithEmailAndPassword, 
   signOut as firebaseSignOut, 
   onAuthStateChanged as firebaseOnAuthStateChanged,
-  User as FirebaseUser // Rinomina per chiarezza, User è già nel nostro src/types
+  User as FirebaseUser, // Rinomina per chiarezza, User è già nel nostro src/types
+  createUserWithEmailAndPassword, // Importa la funzione per creare utenti
+  sendPasswordResetEmail // Importa la funzione per inviare email di reset password
 } from 'firebase/auth';
 import type { User as AppUser } from '@/types'; // Il nostro tipo User applicativo
 import { apiClient } from '@/lib/graphql/client'; 
@@ -102,7 +104,7 @@ export const onAuthStatusChanged = (
           }
           // Potresti voler assegnare un ruolo di default o gestire diversamente
           appUser.role = appUser.role || 'user'; // Fallback role
-          appUser.disabled = appUser.status === 'DISABLED'; // Fallback status
+          appUser.disabled = appUser.status === 'DISABLED'; 
         }
       } catch (error) {
         console.error("Failed to fetch extended user profile during onAuthStatusChanged:", error);
@@ -121,3 +123,23 @@ export const onAuthStatusChanged = (
   });
 };
 
+// Funzione per creare un utente in Firebase Authentication (Client SDK)
+export const createUserInFirebaseAuth = async (email: string, password: string): Promise<FirebaseUser | null> => {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+  } catch (error) {
+    console.error("Error creating user in Firebase Auth:", error);
+    throw error; // Rilancia l'errore per gestirlo nel form
+  }
+};
+
+// Funzione per inviare l'email di reset password
+export const sendPasswordReset = async (email: string): Promise<void> => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (error) {
+    console.error("Error sending password reset email:", error);
+    throw error; // Rilancia l'errore
+  }
+};
