@@ -34,7 +34,7 @@ async function getUserByFirebaseId(firebaseId: string): Promise<Partial<AppUser>
         last_name: dbUser.last_name,
         avatar: dbUser.avatar, // raw avatar, parseImg will be used in component
         role: dbUser.role,
-        status: dbUser.status,
+        status: dbUser.status, // Should be 'ACTIVE' or 'DISABLED'
         auth_complete: dbUser.auth_complete,
         born: dbUser.born,
         cover: dbUser.cover, // raw cover
@@ -76,6 +76,7 @@ export const onAuthStatusChanged = (
         displayName: fbUser.displayName, 
         avatar: fbUser.photoURL, // Firebase avatar
         id: 0, // Placeholder DB ID, sarà sovrascritto
+        status: 'ACTIVE', // Default status
       };
 
       try {
@@ -88,8 +89,9 @@ export const onAuthStatusChanged = (
             id: typeof extendedProfile.id === 'string' ? parseInt(extendedProfile.id, 10) : extendedProfile.id || appUser.id,
             // Sovrascrivi avatar se presente nel profilo esteso, altrimenti usa quello di Firebase
             avatar: extendedProfile.avatar || appUser.avatar,
-            disabled: extendedProfile.status === 'disabled',
+            disabled: extendedProfile.status === 'DISABLED',
             displayName: `${extendedProfile.first_name || ''} ${extendedProfile.last_name || ''}`.trim() || appUser.displayName,
+            status: extendedProfile.status || appUser.status, // Use Hasura status if available
           };
         } else {
           console.warn(`User ${fbUser.uid} authenticated with Firebase but no extended profile found in DB.`);
@@ -100,7 +102,7 @@ export const onAuthStatusChanged = (
           }
           // Potresti voler assegnare un ruolo di default o gestire diversamente
           appUser.role = appUser.role || 'user'; // Fallback role
-          appUser.disabled = appUser.disabled || false; // Fallback status
+          appUser.disabled = appUser.status === 'DISABLED'; // Fallback status
         }
       } catch (error) {
         console.error("Failed to fetch extended user profile during onAuthStatusChanged:", error);
@@ -109,7 +111,7 @@ export const onAuthStatusChanged = (
              appUser.displayName = appUser.email;
           }
         appUser.role = appUser.role || 'user';
-        appUser.disabled = appUser.disabled || false;
+        appUser.disabled = appUser.status === 'DISABLED';
       }
       
       callback(appUser, fbUser);
@@ -118,3 +120,4 @@ export const onAuthStatusChanged = (
     }
   });
 };
+

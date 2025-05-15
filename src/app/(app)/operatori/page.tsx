@@ -83,7 +83,7 @@ export default function OperatoriPage() {
           const fetchedOperators: User[] = response.data.users.map(u => ({
             ...u,
             id: parseInt(u.id, 10),
-            disabled: u.status === 'disabled',
+            disabled: u.status === 'DISABLED',
             displayName: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
           }));
           setOperators(fetchedOperators);
@@ -134,13 +134,12 @@ export default function OperatoriPage() {
       return;
     }
     
-    const currentStatusIsDisabled = operatorToToggle.status === 'disabled';
-    const newStatus = currentStatusIsDisabled ? 'active' : 'disabled';
+    const currentStatusIsDisabled = operatorToToggle.status === 'DISABLED';
+    const newStatus = currentStatusIsDisabled ? 'ACTIVE' : 'DISABLED';
     const optimisticOperatorDisplay = operatorToToggle.displayName || operatorToToggle.email;
 
     try {
       console.log(`Attempting to update status for operator ${operatorId} to ${newStatus} in Hasura.`);
-      // 1. Update status in Hasura
       const dbResponse = await apiClient(UPDATE_USER_STATUS_MUTATION, { id: operatorToToggle.id, status: newStatus });
       if (dbResponse.errors || !dbResponse.data?.update_users_by_pk) {
         console.error("Hasura status update failed:", dbResponse.errors || "No data returned from update_users_by_pk mutation.");
@@ -148,25 +147,23 @@ export default function OperatoriPage() {
       }
       console.log(`Hasura status update for operator ${operatorId} to ${newStatus} successful.`);
       
-      // 2. Conceptually update Firebase Auth status (requires backend)
       console.log(`Attempting to update Firebase status for operator ${operatorToToggle.firebaseId} to ${newStatus}.`);
-      if (newStatus === 'disabled') {
+      if (newStatus === 'DISABLED') {
+        console.log(`Calling disableFirebaseUser for ${operatorToToggle.firebaseId}.`);
         await disableFirebaseUser(operatorToToggle.firebaseId);
-        console.log(`disableFirebaseUser called for ${operatorToToggle.firebaseId}.`);
       } else {
+        console.log(`Calling enableFirebaseUser for ${operatorToToggle.firebaseId}.`);
         await enableFirebaseUser(operatorToToggle.firebaseId);
-        console.log(`enableFirebaseUser called for ${operatorToToggle.firebaseId}.`);
       }
       console.log(`Firebase status update for operator ${operatorToToggle.firebaseId} (simulated) complete.`);
       
-      // 3. Update local state
       setOperators(prevOperators =>
         prevOperators.map(op =>
-          op.id === operatorId ? { ...op, status: newStatus, disabled: newStatus === 'disabled' } : op
+          op.id === operatorId ? { ...op, status: newStatus, disabled: newStatus === 'DISABLED' } : op
         )
       );
       toast({
-        title: `Operatore ${newStatus === 'active' ? 'Abilitato' : 'Disabilitato'}`,
+        title: `Operatore ${newStatus === 'ACTIVE' ? 'Abilitato' : 'Disabilitato'}`,
         description: `Lo stato di ${optimisticOperatorDisplay} è stato aggiornato.`,
       });
     } catch (error) {
@@ -193,13 +190,11 @@ export default function OperatoriPage() {
     const operatorNameToDelete = operatorToDelete.displayName || operatorToDelete.email || "Operatore Selezionato";
 
     try {
-      // 1. Delete from Hasura
       const dbResponse = await apiClient(REMOVE_USER_MUTATION, { id: operatorToDelete.id });
       if (dbResponse.errors || !dbResponse.data?.delete_users_by_pk) {
         throw new Error(dbResponse.errors ? dbResponse.errors[0].message : "Failed to delete operator from database.");
       }
 
-      // 2. Conceptually delete from Firebase Auth (requires backend)
       if (operatorToDelete.firebaseId) {
         await deleteFirebaseUser(operatorToDelete.firebaseId);
       }
@@ -264,7 +259,7 @@ export default function OperatoriPage() {
             <TableBody>
               {operators.map((operator) => {
                 const avatarSrc = parseImg(operator.avatar) || `https://placehold.co/40x40.png?text=${(operator.first_name || 'O')[0]}${(operator.last_name || 'P')[0]}`;
-                const isDisabled = operator.status === 'disabled'; 
+                const isDisabled = operator.status === 'DISABLED'; 
                 return (
                   <TableRow key={operator.id}>
                     <TableCell>
