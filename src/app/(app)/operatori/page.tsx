@@ -86,7 +86,7 @@ export default function OperatoriPage() {
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-2xl font-bold text-foreground">Gestione Operatori</CardTitle>
-          <CardDescription>Visualizza e gestisci gli utenti con ruolo "operator".</CardDescription>
+          {/* <CardDescription>Visualizza e gestisci gli utenti con ruolo "operator".</CardDescription> */}
         </div>
         <Button asChild>
           <Link href="/operatori/new">

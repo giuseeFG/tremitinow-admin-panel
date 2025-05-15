@@ -39,7 +39,6 @@ export default function UtentiPage() {
     const fetchUsers = async () => {
       setLoading(true);
       try {
-        // TODO: Ensure apiClient is configured and handles authentication for this query
         const response = await apiClient<{ users: any[] }>(GET_USERS_BY_ROLE_QUERY, { role: 'user' });
         if (response.data && response.data.users) {
           const fetchedUsers: User[] = response.data.users.map(u => ({
@@ -87,7 +86,7 @@ export default function UtentiPage() {
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-foreground">Gestione Utenti</CardTitle>
-        <CardDescription>Visualizza e gestisci gli utenti con ruolo "user".</CardDescription>
+        {/* <CardDescription>Visualizza e gestisci gli utenti con ruolo "user".</CardDescription> */}
       </CardHeader>
       <CardContent>
         <Table>
