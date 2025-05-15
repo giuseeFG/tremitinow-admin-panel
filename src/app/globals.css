@@ -85,3 +85,18 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Pintura Editor Theming */
+/* Apply the 'index' class to a wrapper around your Pintura editor for these styles to take effect. */
+/* Originally from a pattern like index.module.css */
+.index .pintura-editor {
+  --color-background: 255, 255, 255; /* Light mode background: white */
+  --color-foreground: 10, 10, 10;     /* Light mode foreground: near black */
+}
+
+@media (prefers-color-scheme: dark) {
+  .index .pintura-editor {
+    --color-background: 10, 10, 10;     /* Dark mode background: near black */
+    --color-foreground: 255, 255, 255; /* Dark mode foreground: white */
+  }
+}
