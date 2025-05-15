@@ -39,7 +39,6 @@ export default function OperatoriPage() {
     const fetchOperators = async () => {
       setLoading(true);
       try {
-        // TODO: Ensure apiClient is configured and handles authentication
         const response = await apiClient<{ users: any[] }>(GET_USERS_BY_ROLE_QUERY, { role: 'operator' });
         if (response.data && response.data.users) {
           const fetchedOperators: User[] = response.data.users.map(u => ({
