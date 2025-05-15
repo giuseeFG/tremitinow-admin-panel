@@ -49,8 +49,12 @@ export interface Post {
 export interface Page { // Mapped from 'groups' table in Hasura
   id: number; // groups.id
   title: string; // groups.title
-  content: string | null; // groups.description
-  created_at: string; // groups.created_at, ISO date string
+  content?: string | null; // groups.description - Optional for list view
+  created_at?: string; // groups.created_at, ISO date string - Optional for list view
+  category?: { // From groups_category_group_category_id
+    id: number;
+    category: string;
+  } | null;
   metadata?: {
     address?: string | null;
     phone?: string | null;

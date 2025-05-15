@@ -76,34 +76,32 @@ export const GET_POSTS_QUERY = `
 
 /**
  * Fetches "pages" (mapped from the 'groups' table).
+ * This query is for the list of pages.
  */
 export const GET_PAGES_QUERY = `
-  query GetPages($limit: Int = 10, $offset: Int = 0) {
+  query GetPagesList($limit: Int = 20, $offset: Int = 0) {
     groups(order_by: {title: asc}, limit: $limit, offset: $offset) {
       id
       title
-      description
-      created_at
-      address
-      phone
-      email
-      web
-      avatar
-      cover
-      # Add any other fields from 'groups' table you want as metadata
+      category: groups_category_group_category_id {
+        id
+        category
+      }
+      # created_at and description (content) are fetched by GET_PAGE_BY_ID_QUERY for detail view
     }
   }
 `;
 
 /**
  * Fetches a single "page" by its ID (from 'groups_by_pk').
+ * This query is for the detail view of a page.
  */
 export const GET_PAGE_BY_ID_QUERY = `
   query GetPageById($id: Int!) {
     groups_by_pk(id: $id) {
       id
       title
-      description
+      description # This is the main content for the page
       created_at
       address
       phone
@@ -111,6 +109,10 @@ export const GET_PAGE_BY_ID_QUERY = `
       web
       avatar
       cover
+      category: groups_category_group_category_id {
+         id
+         category
+      }
       # Add any other fields from 'groups' table you want as metadata
     }
   }
