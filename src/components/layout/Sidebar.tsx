@@ -27,12 +27,14 @@ const adminNavItems = [
   { href: '/posts', label: 'Post', icon: FileText },
   { href: '/pagine', label: 'Pagine', icon: BookOpen },
   { href: '/richieste', label: 'Richieste', icon: ClipboardList },
+  { href: '/tasse-sbarco', label: 'Tasse di Sbarco', icon: Ship },
+  { href: '/permessi-veicoli', label: 'Permessi Veicoli', icon: Car },
 ];
 
 const operatorNavItems = [
   { href: '/operator-dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/tasse-sbarco', label: 'Tasse di Sbarco', icon: Ship }, // Using Ship icon as placeholder
-  { href: '/permessi-veicoli', label: 'Permessi Veicoli', icon: Car }, // Using Car icon as placeholder
+  { href: '/tasse-sbarco', label: 'Tasse di Sbarco', icon: Ship }, 
+  { href: '/permessi-veicoli', label: 'Permessi Veicoli', icon: Car }, 
 ];
 
 export function Sidebar() {
@@ -42,11 +44,12 @@ export function Sidebar() {
   const logoSrc = parseImg("https://placehold.co/40x40/29ABE2/FFFFFF.png?text=TN") || "https://placehold.co/40x40/29ABE2/FFFFFF.png?text=TN";
 
   const navItemsToDisplay = user?.role === 'operator' ? operatorNavItems : adminNavItems;
+  const dashboardPath = user?.role === 'operator' ? "/operator-dashboard" : "/dashboard";
 
   return (
     <UISidebar collapsible="icon">
       <SidebarHeader className="p-4 flex items-center justify-between">
-          <Link href={user?.role === 'operator' ? "/operator-dashboard" : "/dashboard"} className="flex items-center gap-2">
+          <Link href={dashboardPath} className="flex items-center gap-2">
             <Image 
               src={logoSrc} 
               alt="TremitiNow Logo" 
@@ -67,7 +70,7 @@ export function Sidebar() {
             <SidebarMenuItem key={item.href}>
               <Link href={item.href} legacyBehavior passHref>
                 <SidebarMenuButton
-                  isActive={pathname === item.href || (item.href !== (user?.role === 'operator' ? "/operator-dashboard" : "/dashboard") && pathname.startsWith(item.href)) || (pathname === (user?.role === 'operator' ? "/operator-dashboard" : "/dashboard") && item.href === (user?.role === 'operator' ? "/operator-dashboard" : "/dashboard")) }
+                  isActive={pathname === item.href || (item.href !== dashboardPath && pathname.startsWith(item.href)) || (pathname === dashboardPath && item.href === dashboardPath) }
                   tooltip={{ children: item.label, side: "right", align: "center" }}
                   className="justify-start"
                 >
@@ -102,4 +105,3 @@ export function Sidebar() {
     </UISidebar>
   );
 }
-
