@@ -1,12 +1,29 @@
+
 export interface User {
-  id: string;
-  avatarUrl?: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: 'user' | 'operator';
-  createdAt: string; // ISO date string
-  disabled?: boolean;
+  id: string; // Firebase UID
+  email: string | null;
+  
+  // Direttamente da FirebaseUser, possono essere mappati
+  displayName?: string | null; 
+  avatarUrl?: string | null; // da photoURL o dal campo 'avatar' del backend
+
+  // Previsti dal backend dopo fetch con firebaseId (tramite getUserByFirebaseId)
+  firstName?: string; // Corrisponde a first_name
+  lastName?: string; // Corrisponde a last_name
+  role?: 'user' | 'operator' | string; // Ruolo dal backend, più flessibile
+  createdAt?: string; // Data di creazione ISO dal backend
+  disabled?: boolean; // Potrebbe derivare da un campo 'status'
+
+  // Altri campi potenziali dal backend (come mostrato in GET_USER_BY_FIREBASE_ID)
+  dbId?: string; // ID del database del backend, se diverso da Firebase UID
+  auth_complete?: boolean;
+  born?: string; 
+  cover?: string;
+  notifications_enabled?: boolean;
+  phone?: string;
+  sex?: string;
+  status?: string; // es. 'active', 'disabled', 'pending' -> per 'disabled'
+  step?: number | string;
 }
 
 export interface Post {
