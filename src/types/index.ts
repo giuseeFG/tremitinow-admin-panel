@@ -8,7 +8,7 @@ export interface User {
   last_name?: string;
   avatar?: string | null; // from users.avatar
   role?: 'user' | 'operator' | string; // From users.role
-  status?: string; // From users.status
+  status?: 'ACTIVE' | 'DISABLED' | string; // From users.status
   disabled?: boolean; // Derived from status, e.g., status === 'disabled'
   created_at?: string; // ISO date string from users.created_at
 
@@ -63,13 +63,13 @@ export interface Page { // Mapped from 'groups' table in Hasura
   };
 }
 
-export interface Request { // Mapped from 'form_requests' table
+export interface AppRequest { // Renamed from Request to AppRequest
   id: number; // form_requests.id
   email: string;
-  name: string | null; // from form_requests.page_name (or consider if another field represents user's name)
-  note: string | null; // from form_requests.notes
+  page_name: string | null; // from form_requests.page_name
+  notes: string | null; // from form_requests.notes
   created_at: string; // ISO date string
-  category_detail?: { // From form_requests.category_detail
+  category?: { // Updated from category_detail due to GraphQL alias
     category?: string | null;
   } | null;
 }

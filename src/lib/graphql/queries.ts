@@ -118,16 +118,17 @@ export const GET_PAGE_BY_ID_QUERY = `
 
 /**
  * Fetches requests from the 'form_requests' table.
+ * Orders by ID descending.
  */
 export const GET_REQUESTS_QUERY = `
-  query GetRequests($limit: Int = 20, $offset: Int = 0) {
-    form_requests(order_by: {created_at: desc}, limit: $limit, offset: $offset) {
+  query getAllRequests($limit: Int = 20, $offset: Int = 0) {
+    form_requests(order_by: {id: desc}, limit: $limit, offset: $offset) {
       id
       email
       notes
       page_name 
       created_at
-      category_detail {
+      category: category_detail { # Alias category_detail to category
         category
       }
     }
@@ -189,4 +190,3 @@ export const GET_DASHBOARD_STATS_QUERY = `
     }
   }
 `;
-
