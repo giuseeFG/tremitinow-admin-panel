@@ -17,8 +17,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import React from "react";
-import { sendPasswordReset } from "@/lib/firebase/auth"; 
-// Rimuoviamo l'import di registerFirebaseUser perché la creazione utente Firebase è gestita dal backend
+import { sendPasswordReset } from "@/lib/firebase/auth";
+import type { User as AppUser } from "@/types";
 
 const newOperatorSchema = z.object({
   firstName: z.string().min(2, { message: "Il nome deve contenere almeno 2 caratteri." }),
@@ -51,42 +51,43 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
     setIsSubmitting(true);
 
     try {
-      const newUserPayload = {
+      const newUserPayload: Partial<AppUser> & { password?: string } = {
         first_name: data.firstName,
         last_name: data.lastName,
         email: data.email,
-        password: data.password, // La password viene inviata al backend
-        role: 'operator', 
-        // Il backend si occuperà di creare l'utente Firebase e ottenere/salvare il firebaseId
+        password: data.password, // Password will be sent to your backend
+        role: 'operator'
       };
 
-      console.log("Payload for backend /registerUser:", newUserPayload);
-
-      const backendRegisterUrl = process.env.NEXT_PUBLIC_FIREBASE_BASE_URL + '/registerUser';
-      console.log("Attempting to register operator via backend endpoint:", backendRegisterUrl);
+      const backendRegisterUrl = (process.env.NEXT_PUBLIC_FIREBASE_BASE_URL || 'https://europe-west3-tremti-n.cloudfunctions.net') + '/registerUser';
+      console.log("Attempting to register operator via backend endpoint:", backendRegisterUrl, "with payload:", newUserPayload);
       
       const backendResponse = await fetch(backendRegisterUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Qui potresti voler aggiungere un token di autorizzazione se il tuo endpoint /registerUser lo richiede
-          // Ad esempio, se solo un admin può creare altri operatori.
         },
-        body: JSON.stringify({ object: newUserPayload }), // Assumendo che il backend si aspetti un oggetto 'object'
+        body: JSON.stringify({ object: newUserPayload }), 
       });
 
       if (!backendResponse.ok) {
-        const errorData = await backendResponse.json().catch(() => backendResponse.text()); // Prova a parsare JSON, altrimenti testo
+        const errorText = await backendResponse.text();
+        let errorData: any = errorText;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          // errorData remains text if JSON parsing fails
+        }
         console.error("Backend registration error:", backendResponse.status, errorData);
-        throw new Error(typeof errorData === 'object' && errorData.message ? errorData.message : `Registrazione operatore fallita: ${errorData}`);
+        const message = typeof errorData === 'object' && errorData.message ? errorData.message : 
+                        (typeof errorData === 'string' && errorData.length > 0 ? errorData : `Errore HTTP: ${backendResponse.status}`);
+        throw new Error(`Registrazione operatore fallita: ${message}`);
       }
       
       const backendResult = await backendResponse.json(); 
       console.log("Backend registration successful:", backendResult);
       toast({ title: "Operatore Registrato", description: `L'operatore ${data.firstName} ${data.lastName} è stato creato.` });
       
-      // Invio email di reset password (presumendo che il backend non lo faccia)
-      // Se il backend restituisce il firebaseId, potresti volerlo usare o confermare l'email.
       console.log("Attempting to send password reset email to:", data.email);
       await sendPasswordReset(data.email);
       toast({
@@ -96,7 +97,14 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
       console.log("Password reset email sent successfully.");
 
       form.reset();
-      onOperatorCreated(); 
+      if (typeof onOperatorCreated === 'function') {
+        onOperatorCreated();
+      } else {
+        console.error("BUG: onOperatorCreated prop was not a function when called in NewOperatorForm. Value:", onOperatorCreated);
+        // This case should ideally not happen if props are passed correctly.
+        // The toast error below will be generic if this specific error is thrown.
+        throw new Error("Callback per operatore creato non è disponibile.");
+      }
 
     } catch (error: any) {
       console.error("Error creating operator:", error);
@@ -166,10 +174,6 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
           )}
         />
         <div className="flex justify-end gap-2 pt-4">
-          {/* Potresti voler aggiungere un pulsante Annulla che chiama onOperatorCreated senza fare nulla, o che resetta il form */}
-          {/* <Button type="button" variant="outline" onClick={() => { form.reset(); onOperatorCreated();}} disabled={isSubmitting}>
-            Annulla
-          </Button> */}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Crea Operatore
@@ -179,3 +183,4 @@ export function NewOperatorForm({ onOperatorCreated }: NewOperatorFormProps) {
     </Form>
   );
 }
+
