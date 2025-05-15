@@ -4,7 +4,7 @@
 // This is a placeholder for your GraphQL client configuration.
 // You would typically use a library like Apollo Client, urql, or a simple fetch wrapper.
 
-const HASURA_ENDPOINT = process.env.NEXT_PUBLIC_HASURA_GRAPHQL_ENDPOINT || 'YOUR_HASURA_ENDPOINT_HERE';
+const HASURA_ENDPOINT = 'https://api.tremitinow.next2me.cloud/v1/graphql';
 const HASURA_ADMIN_SECRET = process.env.HASURA_GRAPHQL_ADMIN_SECRET; // Or appropriate auth headers
 
 interface GraphQLResponse<T = any> {
@@ -26,6 +26,7 @@ export async function apiClient<T = any>(
 ): Promise<GraphQLResponse<T>> {
   if (!HASURA_ENDPOINT || HASURA_ENDPOINT === 'YOUR_HASURA_ENDPOINT_HERE') {
     console.error('Hasura endpoint is not configured. Cannot make API calls.');
+    // This path should ideally not be reached if HASURA_ENDPOINT is hardcoded above.
     return { errors: [{ message: 'Hasura endpoint not configured.' }] };
   }
 
@@ -76,4 +77,3 @@ export async function apiClient<T = any>(
 //   // Replace with your actual token retrieval logic, e.g., from AuthContext or localStorage
 //   return localStorage.getItem('authToken'); 
 // }
-
