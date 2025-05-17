@@ -124,8 +124,8 @@ query GetPageById($id: Int!) {
     title
     updated_at
     web
-    group_categories_2 { # This is the relational link for categories
-      id # ID of the group_categories_2 entry
+    group_categories_2 {
+      id
       category:group_categories_2_group_category {
         id
         category
@@ -320,6 +320,16 @@ export const GET_VEHICLE_PERMISSIONS_BY_USER_ID_QUERY = `
       start_date
       status
       url
+    }
+  }
+`;
+
+// Mutation to update the status of a vehicle permission
+export const UPDATE_VEHICLE_PERMISSION_STATUS_MUTATION = `
+  mutation UpdateVehiclePermissionStatus($id: Int!, $status: String!) {
+    update_vehicle_permissions_by_pk(pk_columns: {id: $id}, _set: {status: $status}) {
+      id
+      status
     }
   }
 `;
