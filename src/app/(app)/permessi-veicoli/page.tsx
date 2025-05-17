@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Table,
   TableBody,
@@ -65,9 +66,9 @@ export default function PermessiVeicoliPage() {
   const getStatusVariant = (status: VehiclePermission['status']): "default" | "secondary" | "destructive" => {
     switch (status?.toUpperCase()) {
       case 'APPROVED':
-        return 'default'; // Will use primary color
+        return 'default';
       case 'PENDING':
-        return 'secondary'; // Will use accent color (or a grayish one depending on theme)
+        return 'secondary';
       case 'REJECTED':
         return 'destructive';
       default:
@@ -95,21 +96,28 @@ export default function PermessiVeicoliPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Richiedente</TableHead>
-              <TableHead>Email</TableHead>
+              <TableHead>Email Richiesta</TableHead>
               <TableHead>Targa</TableHead>
               <TableHead>Modello</TableHead>
               <TableHead>Inizio Validità</TableHead>
               <TableHead>Fine Validità</TableHead>
-              <TableHead>Data Richiesta</TableHead>
+              <TableHead>Data Richiesta Permesso</TableHead>
               <TableHead>Stato</TableHead>
               <TableHead>Documento</TableHead>
-              {/* <TableHead className="text-right">Azioni</TableHead> */}
             </TableRow>
           </TableHeader>
           <TableBody>
             {permissions.map((permission) => (
               <TableRow key={permission.id}>
-                <TableCell className="font-medium">{`${permission.first_name || ''} ${permission.last_name || ''}`.trim() || '-'}</TableCell>
+                <TableCell className="font-medium">
+                  {permission.user ? (
+                    <Link href={`/utenti/${permission.user}/richieste`} className="text-primary hover:underline">
+                      {`${permission.first_name || ''} ${permission.last_name || ''}`.trim() || 'N/D'}
+                    </Link>
+                  ) : (
+                    `${permission.first_name || ''} ${permission.last_name || ''}`.trim() || '-'
+                  )}
+                </TableCell>
                 <TableCell>{permission.email || '-'}</TableCell>
                 <TableCell>{permission.plate || '-'}</TableCell>
                 <TableCell>{permission.model || '-'}</TableCell>
@@ -132,11 +140,6 @@ export default function PermessiVeicoliPage() {
                     '-'
                   )}
                 </TableCell>
-                {/* <TableCell className="text-right">
-                  <Button variant="ghost" size="sm">
-                    Azioni
-                  </Button>
-                </TableCell> */}
               </TableRow>
             ))}
           </TableBody>

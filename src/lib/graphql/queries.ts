@@ -1,5 +1,4 @@
 
-
 // src/lib/graphql/queries.ts
 
 /**
@@ -264,6 +263,39 @@ export const GET_VEHICLE_PERMISSIONS_QUERY = `
       start_date
       status
       url
+    }
+  }
+`;
+
+// Query to get user details by database ID for the user's requests page
+export const GET_USER_FOR_REQUESTS_PAGE_QUERY = `
+  query GetUserForRequestsPage($id: Int!) {
+    users_by_pk(id: $id) {
+      id
+      first_name
+      last_name
+      email
+    }
+  }
+`;
+
+// Query to get form_requests by email
+export const GET_REQUESTS_BY_EMAIL_QUERY = `
+  query GetRequestsByEmail($email: String!, $limit: Int = 20, $offset: Int = 0) {
+    form_requests(
+      where: {email: {_eq: $email}}
+      order_by: {created_at: desc}
+      limit: $limit
+      offset: $offset
+    ) {
+      id
+      email
+      page_name
+      notes
+      created_at
+      category: category_detail {
+        category
+      }
     }
   }
 `;
