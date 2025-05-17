@@ -253,7 +253,7 @@ export default function UserVehiclePermissionsPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {permission.status?.toUpperCase() === 'PENDING' ? (
+                      {permission.status?.trim().toUpperCase() === 'PENDING' ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0">
