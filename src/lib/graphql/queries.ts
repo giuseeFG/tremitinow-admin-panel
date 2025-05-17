@@ -1,4 +1,5 @@
 
+
 // src/lib/graphql/queries.ts
 
 /**
@@ -96,7 +97,7 @@ export const GET_PAGES_QUERY = `
  * This query is for the detail view of a page.
  */
 export const GET_PAGE_BY_ID_QUERY = `
-  query getPageByID($id: Int!) {
+query GetPageById($id: Int!) {
   groups_by_pk(id: $id) {
     active
     additional_btn_text
@@ -106,13 +107,13 @@ export const GET_PAGE_BY_ID_QUERY = `
     btn_info_text
     can_publish_on_fb
     can_send_notification
-    category
+    category # This is an integer ID for the category
     cover
     created_at
     email
     description
     exclude_from_map_bounce
-    group_categories
+    group_categories # This seems like a text/json field based on your schema
     facebook
     id
     instagram
@@ -124,8 +125,8 @@ export const GET_PAGE_BY_ID_QUERY = `
     title
     updated_at
     web
-    group_categories_2 {
-      id
+    group_categories_2 { # This is the relational link for categories
+      id # ID of the group_categories_2 entry
       category:group_categories_2_group_category {
         id
         category
@@ -192,7 +193,7 @@ export const GET_DASHBOARD_STATS_QUERY = `
         count
       }
     }
-    pages: groups_aggregate { # This will count for "Pagine"
+    pages: groups_aggregate {
       aggregate {
         count
       }
@@ -243,6 +244,26 @@ export const GET_CATEGORIES_QUERY = `
     group_categories(order_by: {category: asc}) {
       id
       category
+    }
+  }
+`;
+
+// Query to get vehicle permissions
+export const GET_VEHICLE_PERMISSIONS_QUERY = `
+  query GetVehiclePermissions($limit: Int = 20, $offset: Int = 0) {
+    vehicle_permissions(order_by: {id: desc}, limit: $limit, offset: $offset) {
+      id
+      user # This is likely the user ID who submitted, or is associated.
+      created_at
+      email
+      end_date
+      first_name
+      last_name
+      model
+      plate
+      start_date
+      status
+      url
     }
   }
 `;

@@ -67,6 +67,7 @@ export interface Page { // Mapped from 'groups' table in Hasura
   cover?: string | null;
   
   group_categories_2?: Array<{
+    id: number; // ID of the group_categories_2 entry
     category?: { 
       id: number;
       category?: string; // Name of the category
@@ -79,9 +80,18 @@ export interface Page { // Mapped from 'groups' table in Hasura
     category: string;
   } | null;
 
-  metadata?: {
-    address?: string | null;
-    // phone, email, web, avatar, cover are now direct properties
+  // Fields from GET_PAGE_BY_ID_QUERY
+  address?: string | null;
+  lat?: string | null; // Assuming string, adjust if number
+  lng?: string | null; // Assuming string, adjust if number
+  web?: string | null;
+  private?: boolean;
+
+
+  metadata?: { // This can be used for fields not explicitly defined if needed
+    exclude_from_map_bounce?: any;
+    group_categories?: any; // Original text/json field for categories if still used
+    old_firebasePageId?: any;
     [key: string]: any;
   };
 }
@@ -100,4 +110,19 @@ export interface AppRequest { // Renamed from Request to AppRequest
 export interface GroupCategory {
   id: number;
   category: string;
+}
+
+export interface VehiclePermission {
+  id: number;
+  user: number; // Assuming this is a user ID from the 'user' column in vehicle_permissions
+  created_at: string; // Request creation date
+  email: string; // Email of the requester
+  end_date: string; // Permission end date
+  first_name: string; // First name of the requester
+  last_name: string; // Last name of the requester
+  model: string; // Vehicle model
+  plate: string; // Vehicle license plate
+  start_date: string; // Permission start date
+  status: 'APPROVED' | 'PENDING' | 'REJECTED' | string; // Permission status
+  url?: string | null; // URL to an associated document/image
 }
