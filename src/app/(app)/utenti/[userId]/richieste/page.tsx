@@ -13,15 +13,16 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, ArrowLeft, ExternalLink } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { apiClient } from '@/lib/graphql/client';
-import { GET_USER_FOR_REQUESTS_PAGE_QUERY, GET_REQUESTS_BY_EMAIL_QUERY } from '@/lib/graphql/queries';
-import type { AppRequest, User } from '@/types';
+import { GET_USER_FOR_REQUESTS_PAGE_QUERY, GET_VEHICLE_PERMISSIONS_BY_USER_ID_QUERY } from '@/lib/graphql/queries';
+import type { User, VehiclePermission } from '@/types';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 
-const formatDateSafe = (dateString?: string | null, formatString: string = 'dd/MM/yyyy HH:mm') => {
+const formatDateSafe = (dateString?: string | null, formatString: string = 'dd/MM/yyyy') => {
   if (!dateString) return '-';
   try {
     return format(new Date(dateString), formatString, { locale: it });
@@ -31,15 +32,15 @@ const formatDateSafe = (dateString?: string | null, formatString: string = 'dd/M
   }
 };
 
-export default function UserRequestsPage() {
+export default function UserVehiclePermissionsPage() {
   const params = useParams();
   const router = useRouter();
   const userId = params?.userId ? parseInt(params.userId as string, 10) : null;
 
   const [user, setUser] = useState<Partial<User> | null>(null);
-  const [requests, setRequests] = useState<AppRequest[]>([]);
+  const [permissions, setPermissions] = useState<VehiclePermission[]>([]);
   const [loadingUser, setLoadingUser] = useState(true);
-  const [loadingRequests, setLoadingRequests] = useState(false);
+  const [loadingPermissions, setLoadingPermissions] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -49,9 +50,9 @@ export default function UserRequestsPage() {
       return;
     }
 
-    const fetchUserData = async () => {
+    const fetchUserDataAndPermissions = async () => {
       setLoadingUser(true);
-      setLoadingRequests(true); // Start loading requests indicator
+      setLoadingPermissions(true);
       try {
         const userResponse = await apiClient<{ users_by_pk: Partial<User> }>(
           GET_USER_FOR_REQUESTS_PAGE_QUERY,
@@ -62,7 +63,7 @@ export default function UserRequestsPage() {
           toast({ title: "Errore Caricamento Utente", description: userResponse.errors?.[0].message || "Utente non trovato.", variant: "destructive" });
           setUser(null);
           setLoadingUser(false);
-          setLoadingRequests(false);
+          setLoadingPermissions(false);
           return;
         }
         
@@ -70,37 +71,46 @@ export default function UserRequestsPage() {
         setUser(fetchedUser);
         setLoadingUser(false);
 
-        if (fetchedUser.email) {
-          const requestsResponse = await apiClient<{ form_requests: AppRequest[] }>(
-            GET_REQUESTS_BY_EMAIL_QUERY,
-            { email: fetchedUser.email }
-          );
+        // Fetch vehicle permissions for this user
+        const permissionsResponse = await apiClient<{ vehicle_permissions: VehiclePermission[] }>(
+          GET_VEHICLE_PERMISSIONS_BY_USER_ID_QUERY,
+          { userId: userId }
+        );
 
-          if (requestsResponse.errors) {
-            toast({ title: "Errore Caricamento Richieste", description: requestsResponse.errors[0].message, variant: "destructive" });
-            setRequests([]);
-          } else if (requestsResponse.data && requestsResponse.data.form_requests) {
-            setRequests(requestsResponse.data.form_requests);
-          } else {
-            setRequests([]);
-          }
+        if (permissionsResponse.errors) {
+          toast({ title: "Errore Caricamento Permessi Veicolo", description: permissionsResponse.errors[0].message, variant: "destructive" });
+          setPermissions([]);
+        } else if (permissionsResponse.data && permissionsResponse.data.vehicle_permissions) {
+          setPermissions(permissionsResponse.data.vehicle_permissions);
         } else {
-          toast({ title: "Email Utente Mancante", description: "Impossibile caricare le richieste senza un indirizzo email per l'utente.", variant: "destructive" });
-          setRequests([]);
+          setPermissions([]);
         }
       } catch (error) {
-        console.error("Failed to fetch user data or requests:", error);
+        console.error("Failed to fetch user data or vehicle permissions:", error);
         toast({ title: "Errore di Rete", description: "Impossibile connettersi al server.", variant: "destructive" });
         setUser(null);
-        setRequests([]);
+        setPermissions([]);
       } finally {
         setLoadingUser(false);
-        setLoadingRequests(false);
+        setLoadingPermissions(false);
       }
     };
 
-    fetchUserData();
+    fetchUserDataAndPermissions();
   }, [userId, toast]);
+
+  const getStatusVariant = (status: VehiclePermission['status']): "default" | "secondary" | "destructive" => {
+    switch (status?.toUpperCase()) {
+      case 'APPROVED':
+        return 'default';
+      case 'PENDING':
+        return 'secondary';
+      case 'REJECTED':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
+  };
 
   if (loadingUser) {
     return (
@@ -127,7 +137,7 @@ export default function UserRequestsPage() {
 
   return (
     <div className="space-y-6">
-        <Button variant="outline" onClick={() => router.back()}>
+        <Button variant="outline" onClick={() => router.push('/permessi-veicoli')}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Torna a Permessi Veicoli
         </Button>
@@ -135,39 +145,59 @@ export default function UserRequestsPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-foreground">
-            Richieste Inoltrate da: {userDisplayName}
+            Permessi Veicolo Richiesti da: {userDisplayName}
           </CardTitle>
-          {user.email && <CardDescription>Email: {user.email}</CardDescription>}
+          {user.email && <CardDescription>Email utente: {user.email}</CardDescription>}
         </CardHeader>
         <CardContent>
-          {loadingRequests ? (
+          {loadingPermissions ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <span className="ml-2">Caricamento richieste...</span>
+              <span className="ml-2">Caricamento permessi...</span>
             </div>
-          ) : requests.length > 0 ? (
+          ) : permissions.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Nome pagina</TableHead>
-                  <TableHead>Note</TableHead>
-                  <TableHead>Categoria</TableHead>
+                  <TableHead>Data Richiesta</TableHead>
+                  <TableHead>Targa</TableHead>
+                  <TableHead>Modello</TableHead>
+                  <TableHead>Inizio Validità</TableHead>
+                  <TableHead>Fine Validità</TableHead>
+                  <TableHead>Stato</TableHead>
+                  <TableHead>Documento</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {requests.map((request) => (
-                  <TableRow key={request.id}>
-                    <TableCell>{formatDateSafe(request.created_at)}</TableCell>
-                    <TableCell>{request.page_name || '-'}</TableCell>
-                    <TableCell className="text-muted-foreground max-w-xs truncate">{request.notes || '-'}</TableCell>
-                    <TableCell>{request.category?.category || '-'}</TableCell>
+                {permissions.map((permission) => (
+                  <TableRow key={permission.id}>
+                    <TableCell>{formatDateSafe(permission.created_at, 'dd/MM/yyyy HH:mm')}</TableCell>
+                    <TableCell>{permission.plate || '-'}</TableCell>
+                    <TableCell>{permission.model || '-'}</TableCell>
+                    <TableCell>{formatDateSafe(permission.start_date)}</TableCell>
+                    <TableCell>{formatDateSafe(permission.end_date)}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusVariant(permission.status)}>
+                        {permission.status || 'Sconosciuto'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {permission.url ? (
+                        <Button variant="link" asChild className="p-0 h-auto">
+                          <a href={permission.url} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                            Visualizza <ExternalLink className="ml-1 h-4 w-4" />
+                          </a>
+                        </Button>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           ) : (
-            <p className="text-center py-10 text-muted-foreground">Nessuna richiesta trovata per questo utente.</p>
+            <p className="text-center py-10 text-muted-foreground">Nessun permesso veicolo trovato per questo utente.</p>
           )}
         </CardContent>
       </Card>

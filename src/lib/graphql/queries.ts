@@ -267,7 +267,7 @@ export const GET_VEHICLE_PERMISSIONS_QUERY = `
   }
 `;
 
-// Query to get user details by database ID for the user's requests page
+// Query to get user details by database ID for pages displaying user-specific data
 export const GET_USER_FOR_REQUESTS_PAGE_QUERY = `
   query GetUserForRequestsPage($id: Int!) {
     users_by_pk(id: $id) {
@@ -296,6 +296,30 @@ export const GET_REQUESTS_BY_EMAIL_QUERY = `
       category: category_detail {
         category
       }
+    }
+  }
+`;
+
+// Query to get vehicle_permissions by user ID
+export const GET_VEHICLE_PERMISSIONS_BY_USER_ID_QUERY = `
+  query GetVehiclePermissionsByUserId($userId: Int!, $limit: Int = 20, $offset: Int = 0) {
+    vehicle_permissions(
+      where: {user: {_eq: $userId}}
+      order_by: {created_at: desc}
+      limit: $limit
+      offset: $offset
+    ) {
+      id
+      created_at
+      email
+      end_date
+      first_name
+      last_name
+      model
+      plate
+      start_date
+      status
+      url
     }
   }
 `;
